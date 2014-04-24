@@ -1,0 +1,1 @@
+grant all on XX_AP_EFT_FORMATS_UTL to apps;
