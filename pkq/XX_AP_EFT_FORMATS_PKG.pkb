@@ -21,20 +21,46 @@ SELECT CH.CHECK_ID
    AND CH.CHECK_NUMBER <= NVL(g_DOC_FIN,CH.CHECK_NUMBER)
    AND CH.AMOUNT between NVL(g_BASE_AMOUNT ,CH.AMOUNT)
    and NVL(g_TOP_AMOUNT  ,CH.AMOUNT)
-   AND NVL(CH.ATTRIBUTE14,k_NEW) = g_STATUS_CHECK
+   --AND NVL(CH.ATTRIBUTE14,k_NEW) in ( k_new, g_STATUS_CHECK )
    AND CH.VOID_DATE IS NULL;
+
+
+CURSOR C_FILE ( P_PART VARCHAR2 ) RETURN T_file IS
+SELECT  MS.FORMAT_TYPE
+       ,chr(MS.ASCII_DELIMITER)  DELIMITER
+       ,DT.TYPE_VALUE
+       ,DT.CONSTANT_VALUE
+       ,DT.SECUENCE
+       ,DT.START_POSITION
+       ,DT.END_POSITION
+       ,DT.DATA_TYPE
+       ,DT.FORMAT_MODEL
+       ,chr(DT.PADDING_CHARACTER) PADDING_CHARACTER
+       ,DT.DIRECTION_PADDING
+       ,decode(DT.DIRECTION_PADDING,'NONE','N','RIGTH','Y', 'LEFT', 'Y') NEEDS_PADDING
+       ,DT.SQL_STATEMENT
+  FROM  XX_AP_EFT_FORMAT_DEFINITIONS DT
+       ,XX_AP_EFT_FORMATS MS
+ WHERE ms.format_id = g_FORMAT_USED
+   AND DT.format_id = MS.format_id
+   AND MS.ENABLE_FLAG = 'Y'
+   AND DT.PART_OF_FILE = P_PART
+ ORDER BY DT.SECUENCE ASC;
 
 procedure open_file  is
 begin
+
+    IF NOT w_init_file THEN
+        w_file_name := w_file_name || TO_CHAR(SYSDATE,'_YYYY-MM-DD_HH24-MI-SS');
+        w_file_out := UTL_FILE.FOPEN (w_file_dir, w_file_name || w_file_ext, 'w',32767);
+        DBMS_OUTPUT.PUT_LINE(' # Opening File ');
+        w_init_file := true;
+    END IF;
     
-    w_file_name := w_file_name || TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS');
-    w_file_out := UTL_FILE.FOPEN (w_file_dir, w_file_name || w_file_ext, 'w',32767);
-    fnd_file.put_line(fnd_file.log,'Opening File');
-    w_init_file := true;
 EXCEPTION
    WHEN OTHERS THEN
              UTL_FILE.FCLOSE(w_file_out);
-            fnd_file.put_line(fnd_file.log,'open_file Error Message Is: '||SQLERRM);
+            DBMS_OUTPUT.PUT_LINE(' # Error Opening File '|| SQLERRM );
 end;
 
 procedure close_file is
@@ -57,14 +83,13 @@ begin
         DBMS_OUTPUT.PUT_LINE(BUFF);
     elsif WHICH = w_file then
         if(w_init_file) then
-            utl_file.put_line(w_file_out, convert(BUFF, 'WE8ISO8859P1', 'UTF8') );
+            utl_file.put( w_file_out  , convert(BUFF || f_end_of_line , 'WE8ISO8859P1', 'UTF8') );
             utl_file.fflush(w_file_out);
-        else
-            open_file;
         end if;
    end if;
    exception
       WHEN OTHERS THEN
+            DBMS_OUTPUT.PUT_LINE('error abriendo archivo ' ||SQLERRM  );
              UTL_FILE.FCLOSE(w_file_out);
             fnd_file.put_line(fnd_file.log,'PUTLINE Error Message Is: '||SQLERRM);
 end;
@@ -359,12 +384,10 @@ FUNCTION GENERATE_VALUE (  SQLST      VARCHAR2   --1
     DATE_VAL   DATE;
     NUMBER_VAL NUMBER;
     SQL_STATEMENT VARCHAR2(4000);
-    PAD_CHARACTER VARCHAR2(1);
-    DELIMIT_CHAR VARCHAR2(1);
-    CONSTANT_VALUE VARCHAR2(4000);
+    PAD_CHARACTER   VARCHAR2(4);
+    CONSTANT_VALUE  VARCHAR2(4000);
     
     curid           INTEGER;
-    stmt_str        VARCHAR2(200);
     src_cur         curtype;
     ret number;
     flag_ok_cursor varchar2(1) := 'S';
@@ -374,7 +397,7 @@ begin
 
         CASE TYPE_VAL
 
-        WHEN 'DINAMIC' THEN
+        WHEN k_delimited THEN
             SQL_STATEMENT := SQLST;
             begin
                 -- Opening and Parsing Cursor
@@ -391,7 +414,7 @@ begin
                 
                 --Binding Variables
                 if flag_ok_cursor = 'S' then
-                
+    
                     IF  CHECK_ID IS NOT NULL THEN
                         bind_variables_num(curid,':IDCHECK',CHECK_ID);
                     END IF;
@@ -450,7 +473,6 @@ begin
                 
                 putline(w_log,'============================');
                 putline(w_log,'CHECK_ID->'||to_char(CHECK_ID));
-                
                 
                 putline(w_log,'SQL_STATEMENT   : '||SQL_STATEMENT);
                 putline(w_log,'curid           : '||curid);
@@ -528,12 +550,8 @@ begin
         NULL;
         END CASE;
     
-        CASE DELIMITER
-        WHEN 'T' THEN DELIMIT_CHAR := CHR(9);
-        ELSE  DELIMIT_CHAR := DELIMITER;
-        END CASE;
 
-        IF NEEDS_PA = 'Y' OR TYPE_FILE = 'POSITIONS' THEN
+        IF NEEDS_PA = 'Y' OR TYPE_FILE = k_fixed THEN
 
             --fnd_file.PUT_LINE(fnd_file.OUTPUT,'PAD_CHARACTER ->'||PAD_CHARACTER);
             IF PAD_CHAR IS NULL THEN
@@ -564,21 +582,17 @@ begin
         END IF;
 
         --fnd_file.PUT_LINE(fnd_file.OUTPUT,'OUT_STR2 ->'||OUT_STR);
-        IF  TYPE_FILE = 'DELIMITED' THEN
-            CASE DELIMITER
-            WHEN 'T' THEN DELIMIT_CHAR := CHR(9);
-            WHEN 'E' THEN DELIMIT_CHAR := ' ';
-            ELSE  DELIMIT_CHAR := DELIMITER;
-            END CASE;
-        OUT_STR := REPLACE(OUT_STR,DELIMIT_CHAR,'');
-        OUT_STR := OUT_STR || DELIMIT_CHAR;
+        IF  TYPE_FILE = k_delimited THEN
+        OUT_STR := REPLACE(OUT_STR,DELIMITER,'');
+        OUT_STR := OUT_STR || DELIMITER;
         END IF;
 
         RETURN (OUT_STR);
 
     EXCEPTION
         WHEN OTHERS THEN
-    RETURN ('XX_EXCEPTION_STRING_XX');
+        putline(W_Log,' Error Creating Field ' || sqlerrm );
+    RETURN ('');
     
 END;
 
@@ -592,56 +606,6 @@ END;
 
 PROCEDURE CHECKS_LINE( CHECK_ID  NUMBER ) IS
 
-CURSOR TRX IS
-SELECT  DT.DEFINITION_ID
-       ,MS.FORMAT_TYPE
-       ,chr(MS.ASCII_DELIMITER)  DELIMITER
-       ,DT.TYPE_VALUE
-       ,DT.CONSTANT_VALUE
-       ,DT.SECUENCE
-       ,DT.START_POSITION
-       ,DT.END_POSITION
-       ,DT.DATA_TYPE
-       ,DT.FORMAT_MODEL
-       --,DT.MAX_VALUE_LENGHT
-       ,DT.PADDING_CHARACTER
-       ,DT.DIRECTION_PADDING
-       ,DT.NEEDS_PADDING
-       ,DT.SQL_STATEMENT
-  FROM  XX_AP_EFT_FORMAT_DEFINITIONS DT
-       ,XX_AP_EFT_FORMATS MS
- WHERE ms.format_id = g_FORMAT_USED
-   AND DT.format_id = MS.format_id
-   AND MS.ENABLE_FLAG = 'Y'
-   AND DT.PART_OF_FILE = k_Body
- ORDER BY DT.SECUENCE ASC;
-
-
-CURSOR  DETAIL IS
-SELECT  DT.DEFINITION_ID
-       ,MS.FORMAT_TYPE
-       ,CHR(MS.ASCII_DELIMITER) DELIMITER
-       ,DT.TYPE_VALUE
-       ,DT.CONSTANT_VALUE
-       ,DT.SECUENCE
-       ,DT.START_POSITION
-       ,DT.END_POSITION
-       ,DT.DATA_TYPE
-       ,DT.FORMAT_MODEL
-       --,DT.MAX_VALUE_LENGHT
-       ,DT.PADDING_CHARACTER
-       ,DT.DIRECTION_PADDING
-       ,DT.NEEDS_PADDING
-       ,DT.SQL_STATEMENT
-  FROM  XX_AP_EFT_FORMAT_DEFINITIONS DT
-       ,XX_AP_EFT_FORMATS MS
- where ms.FORMAT_ID = g_FORMAT_USED
-   AND DT.FORMAT_ID = MS.FORMAT_ID
-   AND DT.PART_OF_FILE = k_Detail
-   AND MS.ENABLE_flag = 'Y'
- ORDER BY DT.SECUENCE ASC;
-
-
 CURSOR INVOICES(CHKID NUMBER) IS
 SELECT  IA.INVOICE_ID
   FROM  APPS.AP_INVOICES_ALL  IA
@@ -651,35 +615,34 @@ SELECT  IA.INVOICE_ID
    AND IPA.INVOICE_ID = IA.INVOICE_ID
    AND CH.CHECK_ID = CHKID;
 
-
-TRX_LINE    VARCHAR2(4000);
-DETAIL_LINE VARCHAR2(4000);
-FIELD       VARCHAR2(4000);
+    TRX_LINE    VARCHAR2(4000);
+    DETAIL_LINE VARCHAR2(4000);
+    FIELD       VARCHAR2(4000);
 
 BEGIN
     
     TRX_LINE :='';
     
-    FOR Q IN TRX LOOP
+    FOR Q IN C_FILE ( k_Body ) LOOP
 
-    FIELD:= GENERATE_VALUE (
-          Q.SQL_STATEMENT        --1
-         ,Q.TYPE_VALUE           --2
-         ,CHECK_ID               --3
-         ,NULL                   --4
-         ,Q.DATA_TYPE            --5
-         ,Q.FORMAT_MODEL         --6
-         ,Q.CONSTANT_VALUE       --7
-         ,Q.NEEDS_PADDING        --8
-         ,Q.PADDING_CHARACTER    --9
-         ,Q.DIRECTION_PADDING    --10
-         ,Q.END_POSITION - Q.START_POSITION + 1   --11
-         ,Q.FORMAT_TYPE          --12
-         ,Q.DELIMITER            --13
-          );
+        FIELD:= GENERATE_VALUE (
+              Q.SQL_STATEMENT        --1
+             ,Q.TYPE_VALUE           --2
+             ,CHECK_ID               --3
+             ,NULL                   --4
+             ,Q.DATA_TYPE            --5
+             ,Q.FORMAT_MODEL         --6
+             ,Q.CONSTANT_VALUE       --7
+             ,Q.NEEDS_PADDING        --8
+             ,Q.PADDING_CHARACTER    --9
+             ,Q.DIRECTION_PADDING    --10
+             ,Q.END_POSITION - Q.START_POSITION + 1   --11
+             ,Q.FORMAT_TYPE          --12
+             ,Q.DELIMITER            --13
+              );
 
-    TRX_LINE := TRX_LINE||FIELD;
-    --fnd_file.PUT_LINE(fnd_file.OUTPUT,'PART '||PART);
+        TRX_LINE := TRX_LINE||FIELD;
+
     END LOOP;
 
     IF F_FORMAT_TYPE = k_delimited THEN
@@ -696,7 +659,7 @@ BEGIN
 
             DETAIL_LINE := '';
 
-            FOR H IN DETAIL  LOOP
+            FOR H IN C_FILE ( k_Detail )  LOOP
 
             FIELD := GENERATE_VALUE (
                      H.SQL_STATEMENT, --1
@@ -705,7 +668,7 @@ BEGIN
                      W.INVOICE_ID,      --4
                      H.DATA_TYPE,       --5
                      H.FORMAT_model,    --6
-                     H.CONSTANT_VALUE,  --9
+                     H.CONSTANT_VALUE, --9
                      H.NEEDS_PADDING,   --10
                      H.PADDING_CHARACTER,--11
                      H.DIRECTION_PADDING,       --12
@@ -721,12 +684,11 @@ BEGIN
 
 
             IF F_FORMAT_TYPE = k_delimited THEN
-            DETAIL_LINE := SUBSTR(DETAIL_LINE,1,LENGTH(DETAIL_LINE)-1);
+                DETAIL_LINE := SUBSTR(DETAIL_LINE,1,LENGTH(DETAIL_LINE)-1);
             END IF;
 
             PUTLINE(w_wich,DETAIL_LINE);
             
-
             v_SEQUENCE2 := v_SEQUENCE2 + 1;
             v_SEQUENCE3 := v_SEQUENCE3 + 1;
 
@@ -736,6 +698,7 @@ BEGIN
 
     v_SEQUENCE1 := v_SEQUENCE1 + 1;
     v_SEQUENCE3 := v_SEQUENCE3 + 1;
+    
     exception
     WHEN OTHERS THEN
     putline(w_log,'PROCEDURE CHECKS_LINE Message Is: '||SQLERRM);         
@@ -750,63 +713,67 @@ END;
 
 
 
-procedure INITIALIZE (
-          BANK_ID           NUMBER,
-          BANK_ACC          NUMBER,
-          PAY_DOCUMENT      NUMBER,
-          START_DATE    VARCHAR2,
-          END_DATE      VARCHAR2,
-          CHECKRUN_ID       NUMBER,
-          P_DOC_INI         NUMBER,
-          P_DOC_FIN         NUMBER,
-          BASE_AMOUNT       NUMBER,
-          TOP_AMOUNT        NUMBER,
-          TRANSFER_FTP     varchar2 default 'N' ) is
+Procedure Initialize (
+           P_Bank_Id            Number      --+ 1
+          ,P_Bank_Acc           Number      --+ 2
+          ,P_Pay_Document       Number      --+ 3
+          ,P_Format_Used        Number      --+ 4
+          ,P_Start_Date         Varchar2    --+ 5
+          ,P_End_Date           Varchar2    --+ 6
+          ,P_Doc_Ini            Number      --+ 7
+          ,P_Doc_Fin            Number      --+ 8
+          ,P_Base_Amount        Number      --+ 9
+          ,P_Top_Amount         Number      --+ 10
+          ,P_Transfer_Ftp       Varchar2    --+ 11
+          ,P_Only_Unsent        Varchar2    --+ 12
+          ,P_Debugg_Flag        Varchar2    --+ 13
+                      ) Is
+
+
 
     CURSOR FORMAT  IS
         SELECT DISTINCT
            MS.FORMAT_ID
           ,CHR(MS.ASCII_DELIMITER) DELIMITER
-          --,MS.MAX_VALUE_LENGTH
           ,MS.FORMAT_TYPE
           ,DT.PART_OF_FILE
       FROM  XX_AP_EFT_FORMAT_DEFINITIONS DT
-            ,XX_AP_EFT_FORMATS MS
+           ,XX_AP_EFT_FORMATS MS
      WHERE ms.FORMAT_ID = g_FORMAT_USED
        AND MS.ENABLE_FLAG = 'Y'
        AND MS.FORMAT_ID = DT.FORMAT_ID;
 
 begin
     
-    E_Start_Flag := true;
+     E_Start_Flag := true;
 
-    G_BANK_ID       := BANK_ID;
-    G_BANK_ACC      := BANK_ACC;
-    G_PAY_DOCUMENT  := PAY_DOCUMENT; 
-    G_START_DATE    := to_date(START_DATE,fnd_date.canonical_DT_mask); 
-    G_END_DATE      := to_date(END_DATE,fnd_date.canonical_DT_mask);
-    G_BASE_AMOUNT   := BASE_AMOUNT; 
-    G_TOP_AMOUNT    := TOP_AMOUNT;
+    --G_BANK_ID       := P_Bank_Id;
+    G_BANK_ACC      := P_Bank_Acc;
+    G_PAY_DOCUMENT  := P_Pay_Document;
+    G_Format_Used   := P_Format_Used; 
+    G_START_DATE    := to_date(P_Start_Date,fnd_date.canonical_DT_mask); 
+    G_END_DATE      := to_date(P_End_Date,fnd_date.canonical_DT_mask);
+    G_BASE_AMOUNT   := p_BASE_AMOUNT; 
+    G_TOP_AMOUNT    := p_TOP_AMOUNT;
     G_DOC_INI       := P_DOC_INI;
     G_DOC_FIN       := P_DOC_FIN;
-    G_CHECKRUN_ID   := CHECKRUN_ID;
-    G_STATUS_CHECK  := k_NEW;
+    
+    if      P_Only_Unsent = 'Y' then    G_STATUS_CHECK  := k_NEW;
+    elsif   P_Only_Unsent = 'N' then    G_STATUS_CHECK  := K_PRINTED;
+    end if;
         
     begin
-        select ms.FORMAT_ID ,   fdc.OUTGOING_DIRECTORY, ms.file_extension
-          into g_FORMAT_USED,   w_file_dir            , W_File_Ext
+        select  ms.file_extension   , DECODE( END_OF_LINE , 'LF' , CHR(10), 'CRLF', CHR(13)||CHR(10),  CHR(10)  )
+          into  W_File_Ext          , f_end_of_line
           from XX_AP_EFT_FORMATS ms
-              ,apps.CE_PAYMENT_DOCUMENTS dc
-              , apps.CE_PAYMENT_DOCUMENTS_DFV fdc
-         where dc.PAYMENT_DOCUMENT_ID = PAY_DOCUMENT
-           and fdc.rowid = dc.rowid
-           AND ms.FORMAT_ID = to_number(fdc.FORMAT_FILE);
+         where ms.FORMAT_ID = P_Format_Used
+         ;
     exception when no_data_found then
         E_Error_Code := '1';
          PUTLINE(w_LOG,' Payment Document Does not have an assigned Format '||w_file_dir);
     end;
    
-    if TRANSFER_FTP = 'Y' then 
+    if p_TRANSFER_FTP = 'Y' then 
         PUTLINE(w_LOG,' File will be transfer to FTP ');
         begin
            select DIRECTORY_NAME into w_file_dir
@@ -820,7 +787,7 @@ begin
             PUTLINE(w_LOG,' UnExpected Error all_directories '||SQLerrm);
         end;
         
-        if w_file_dir is not null and W_File_Ext is not null  then
+        if w_file_dir is not null  then
             f_transfer_ftp := true;
             open_file;
             W_Wich := w_file;
@@ -832,43 +799,27 @@ begin
     else   
         f_transfer_ftp := false;
         w_wich := w_output;
+        if P_Debugg_Flag != '1' then
+            w_WICH := W_File;
+        end if;
     end if;
            
-    putline(w_log,',BANK_ID         =>'''||BANK_ID||'''');
-    putline(w_log,',BANK_ACC        =>'''||BANK_ACC||'''');
-    putline(w_log,',PAY_DOCUMENT    =>'''||PAY_DOCUMENT||'''');
-    putline(w_log,',START_DATE      =>'''||START_DATE||'''');
-    putline(w_log,',END_DATE        =>'''||END_DATE||'''');
-    putline(w_log,',CHECKRUN_ID     =>'''||CHECKRUN_ID||'''');
-    putline(w_log,',P_DOC_INI       =>'''||P_DOC_INI||'''');
-    putline(w_log,',P_DOC_FIN       =>'''||P_DOC_FIN||'''');
-    putline(w_log,',BASE_AMOUNT     =>'''||BASE_AMOUNT||'''');
-    putline(w_log,',TOP_AMOUNT      =>'''||TOP_AMOUNT||'''');
-    putline(w_log,',TRANSFER_FTP     =>'''||TRANSFER_FTP||'''');
-        
+ 
     FOR R IN FORMAT LOOP
                     
-        F_FORMAT_TYPE  := R.FORMAT_TYPE;
-        f_DELIMITER       := R.DELIMITER;
+        F_FORMAT_TYPE   := R.FORMAT_TYPE;
+        f_DELIMITER     := R.DELIMITER;
 
         CASE R.PART_OF_FILE
-        WHEN 'HEADER' THEN  f_TRX_HEADER := true;
-        WHEN 'TRX'    THEN  f_TRX_BODY   := true;
-        WHEN 'DETAIL' THEN  f_TRX_DETAIL := true;
-        WHEN 'FOOTER' THEN  f_TRX_FOOTER := true;
+        WHEN k_Header   THEN  f_TRX_HEADER := true;
+        WHEN k_Body     THEN  f_TRX_BODY   := true;
+        WHEN k_Detail   THEN  f_TRX_DETAIL := true;
+        WHEN k_TRAILER  THEN  f_TRX_FOOTER := true;
         ELSE NULL;
         END CASE;
 
     END LOOP;
                 
-    putline(w_log,'f_TRX_HEADER       =>' ||bool_to_char( f_TRX_HEADER));
-    putline(w_log,'f_TRX_BODY         =>' ||bool_to_char( f_TRX_BODY));
-    putline(w_log,'f_TRX_DETAIL       =>' ||bool_to_char( f_TRX_DETAIL));
-    putline(w_log,'f_TRX_FOOTER       =>' ||bool_to_char( f_TRX_FOOTER));
-    putline(w_log,'F_FORMAT_TYPE      =>' || F_FORMAT_TYPE);
-    putline(w_log,'f_DELIMITER        =>' || f_DELIMITER);
-    putline(w_log,'g_FORMAT_USED      =>' || g_FORMAT_USED);
-    
     
     GET_TRXAMOUNT_AND_TRXLINES;
     
@@ -891,87 +842,108 @@ begin
         e_ERROR_CODE := '1';
     END IF;
     
+    putline(w_log,' k_Header                 => ' ||k_Header );
+    putline(w_log,' k_Body                   => ' ||k_Body );
+    putline(w_log,' k_Detail                 => ' ||k_Detail );
+    putline(w_log,' k_TRAILER                => ' ||k_TRAILER );
+    putline(w_log,' k_delimited              => ' ||k_delimited );
+    putline(w_log,' k_fixed                  => ' ||k_fixed );
+    putline(w_log,' k_NEW                    => ' ||k_NEW );
+    putline(w_log,' K_PRINTED                => ' ||K_PRINTED );
+    putline(w_log,' F_Trx_Header             => ' ||bool_to_char(F_Trx_Header ) );
+    putline(w_log,' F_Trx_Body               => ' ||bool_to_char(F_Trx_Body ) );
+    putline(w_log,' F_Trx_Detail             => ' ||bool_to_char(F_Trx_Detail ) );
+    putline(w_log,' F_Trx_Footer             => ' ||bool_to_char(F_Trx_Footer ) );
+    putline(w_log,' F_FORMAT_TYPE            => ' ||F_FORMAT_TYPE );
+    putline(w_log,' F_Delimiter              => ' ||F_Delimiter );
+    putline(w_log,' F_Transfer_Ftp           => ' ||bool_to_char(F_Transfer_Ftp ) );
+    --putline(w_log,' f_end_of_line            => ' ||f_end_of_line );
+    putline(w_log,' V_Sequence1              => ' ||V_Sequence1 );
+    putline(w_log,' V_Sequence2              => ' ||V_Sequence2 );
+    putline(w_log,' V_Sequence3              => ' ||V_Sequence3 );
+    putline(w_log,' V_Detail_Lines           => ' ||V_Detail_Lines );
+    putline(w_log,' V_Trx_Lines              => ' ||V_Trx_Lines );
+    putline(w_log,' V_Sum_Trans              => ' ||V_Sum_Trans );
+    putline(w_log,' V_Report_Lines           => ' ||V_Report_Lines );
+    putline(w_log,' W_Log                    => ' ||W_Log );
+    putline(w_log,' W_Output                 => ' ||W_Output );
+    putline(w_log,' W_File                   => ' ||W_File );
+    putline(w_log,' w_dbms                   => ' ||w_dbms );
+    putline(w_log,' W_Wich                   => ' ||W_Wich );
+    putline(w_log,' W_Init_File              => ' ||bool_to_char(W_Init_File ) );
+    putline(w_log,' W_File_Name              => ' ||W_File_Name );
+    putline(w_log,' W_File_Ext               => ' ||W_File_Ext );
+    putline(w_log,' W_File_Dir               => ' ||W_File_Dir );
+    putline(w_log,' E_Start_Flag             => ' ||bool_to_char(E_Start_Flag ) );
+    putline(w_log,' E_Proper_exe             => ' ||bool_to_char(E_Proper_exe) );
+    putline(w_log,' E_Error_Desc             => ' ||E_Error_Desc );
+    putline(w_log,' E_Error_Code             => ' ||E_Error_Code );
+
+
+    
 end;
 
 
 procedure main (
-          ERRBUF     OUT  VARCHAR2,
-          RETCODE    OUT  VARCHAR2,
-          BANK_ID           NUMBER,
-          BANK_ACC          NUMBER,
-          PAY_DOCUMENT      NUMBER,
-          START_DATE    VARCHAR2,
-          END_DATE      VARCHAR2,
-          CHECKRUN_ID       NUMBER,
-          P_DOC_INI         NUMBER,
-          P_DOC_FIN         NUMBER,
-          BASE_AMOUNT       NUMBER,
-          TOP_AMOUNT        NUMBER,
-          TRANSFER_FTP      varchar2,
-          debug_flag  Varchar2 default '1'
-) IS
+         Errbuf     Out          Varchar2
+        ,Retcode    Out          Varchar2
+        ,pin_Bank_Acc            Number
+        ,Pin_Pay_Document        Number
+        ,Pin_Format_used         Number
+        ,Pin_Doc_Ini             Number
+        ,Pin_Doc_Fin             Number
+        ,Pin_Start_Date          Varchar2
+        ,Pin_End_Date            Varchar2
+        ,Pin_Base_Amount         Number
+        ,Pin_Top_Amount          Number
+        ,Pin_Transfer_Ftp        Varchar2
+        ,Pin_Only_Unsent         Varchar2
+        ,Pin_debug_flag          Varchar2 default '1'
+        ) IS
     
-
-    FIELD       VARCHAR2(4000);
-    LINE        VARCHAR2(4000);
+    Field                   Varchar2(4000);
+    Line                    Clob;
     
-
-
-CURSOR SUMARY(PART VARCHAR2 ) IS
-    SELECT  DT.DEFINITION_ID
-           ,MS.FORMAT_TYPE
-           ,CHR(MS.ASCII_DELIMITER) DELIMITER
-           ,DT.TYPE_VALUE
-           ,DT.CONSTANT_VALUE
-           ,DT.SECUENCE
-           ,DT.DATA_TYPE
-           ,DT.FORMAT_MODEL
-           --,DT.MAX_VALUE_LENGHT
-           ,DT.END_POSITION
-           ,DT.START_POSITION
-           ,DT.PADDING_CHARACTER
-           ,DT.DIRECTION_PADDING
-           ,DT.NEEDS_PADDING
-           ,DT.SQL_STATEMENT
-      FROM  XX_AP_EFT_FORMAT_DEFINITIONS DT
-           ,XX_AP_EFT_FORMATS MS
-     WHERE 1=1
-       and ms.FORMAT_ID = g_FORMAT_USED
-       AND DT.FORMAT_ID = MS.FORMAT_ID
-       AND DT.PART_OF_FILE = PART
-       AND MS.ENABLE_FLAG = 'Y'
-     ORDER BY DT.SECUENCE ASC;
-
     BEGIN
-        if debug_flag != '1' then
+
+        if Pin_debug_flag != '1' then
             W_Log := w_dbms;
+            w_WICH := W_File;
         end if;
 
+        putline(w_log,'');
         putline(w_log,'Start process log');
         putline(w_log,'+---------------------------------------------------------------------------+');
+
+
 
         --+ set Global Varibles for formating and Output
         --+ Checks if minimun requirements are place, also the correct configuration
 
-        INITIALIZE (
-                    BANK_ID
-                   ,BANK_ACC
-                   ,PAY_DOCUMENT
-                   ,START_DATE
-                   ,END_DATE
-                   ,CHECKRUN_ID
-                   ,P_DOC_INI
-                   ,P_DOC_FIN
-                   ,BASE_AMOUNT
-                   ,TOP_AMOUNT
-                   ,TRANSFER_FTP
+
+        initialize (
+                   P_Bank_Id            => null
+                  ,P_Bank_Acc           => Pin_Bank_Acc
+                  ,P_Pay_Document       => Pin_Pay_Document
+                  ,P_Format_Used        => Pin_Format_used
+                  ,P_Start_Date         => pin_Start_Date
+                  ,P_End_Date           => pin_End_Date
+                  ,P_Doc_Ini            => Pin_Doc_Ini
+                  ,P_Doc_Fin            => Pin_Doc_Fin
+                  ,P_Base_Amount        => Pin_Base_Amount
+                  ,P_Top_Amount         => Pin_Top_Amount
+                  ,P_TRANSFER_FTP       => Pin_Transfer_Ftp
+                  ,P_Only_Unsent        => Pin_Only_Unsent
+                  ,p_debugg_flag        => Pin_debug_flag
                    );
 
+
         IF E_Start_Flag THEN
-            
+
+       
             IF f_TRX_HEADER THEN
 
-                FOR L IN SUMARY(k_Header) LOOP
+                FOR L IN C_FILE(k_Header) LOOP
 
                     FIELD := GENERATE_VALUE (
                              L.SQL_STATEMENT,
@@ -999,7 +971,7 @@ CURSOR SUMARY(PART VARCHAR2 ) IS
                 PUTLINE(w_wich,LINE);
 
             END IF;
-
+          
             IF f_TRX_BODY THEN
                 
                 v_SEQUENCE1 := 1;
@@ -1009,11 +981,10 @@ CURSOR SUMARY(PART VARCHAR2 ) IS
                 end loop;
 
             END IF;
-
-
+           
             IF f_TRX_FOOTER THEN
 
-                FOR L IN SUMARY(k_TRAILER) LOOP
+                FOR L IN C_FILE(k_TRAILER) LOOP
 
                     FIELD := GENERATE_VALUE (
                          L.SQL_STATEMENT,
@@ -1049,12 +1020,11 @@ CURSOR SUMARY(PART VARCHAR2 ) IS
 
             
             if f_transfer_ftp then
-            null;
-           UPDATE_PROCESS_CHECKS;
-            
-           end if;
-           
-            report_subrequest; --+ This Raise a Report of The payments Just Send
+                null;
+--                UPDATE_PROCESS_CHECKS;
+            end if;
+           null;
+            --report_subrequest; --+ This Raise a Report of The payments Just Send
             
           
         end if;
@@ -1093,19 +1063,22 @@ procedure REPORT (
     
     BEGIN
 
-        INITIALIZE (
-              BANK_ID,
-              BANK_ACC,
-              PAY_DOCUMENT,
-              START_DATE ,
-              END_DATE,
-              CHECKRUN_ID ,
-              P_DOC_INI,
-              P_DOC_FIN,
-              BASE_AMOUNT,
-              TOP_AMOUNT,
-              'N');
-        
+        initialize (
+                   P_Bank_Id            => BANK_ID
+                  ,P_Bank_Acc           => BANK_ACC
+                  ,P_Pay_Document       => null
+                  ,P_Format_Used        => null
+                  ,P_Start_Date         => START_DATE
+                  ,P_End_Date           => END_DATE
+                  ,P_Doc_Ini            => P_Doc_Ini
+                  ,P_Doc_Fin            => P_Doc_Fin
+                  ,P_Base_Amount        => BASE_AMOUNT
+                  ,P_Top_Amount         => TOP_AMOUNT
+                  ,P_TRANSFER_FTP       => null
+                  ,P_Only_Unsent        => null
+                  ,p_debugg_flag        => null
+                   );
+
        LOG_REPORT_DETAILS (w_output);
 
         retcode := '0';
