@@ -26,19 +26,19 @@ SELECT CH.CHECK_ID
 
 
 CURSOR C_FILE ( P_PART VARCHAR2 ) RETURN T_file IS
-SELECT  MS.FORMAT_TYPE
-       ,chr(MS.ASCII_DELIMITER)  DELIMITER
-       ,DT.TYPE_VALUE
-       ,DT.CONSTANT_VALUE
-       ,DT.SECUENCE
-       ,DT.START_POSITION
-       ,DT.END_POSITION
-       ,DT.DATA_TYPE
-       ,DT.FORMAT_MODEL
-       ,chr(DT.PADDING_CHARACTER) PADDING_CHARACTER
-       ,DT.DIRECTION_PADDING
-       ,decode(DT.DIRECTION_PADDING,'NONE','N','RIGTH','Y', 'LEFT', 'Y') NEEDS_PADDING
-       ,DT.SQL_STATEMENT
+SELECT  MS.FORMAT_TYPE                      --+ 1
+       ,chr(MS.ASCII_DELIMITER)  DELIMITER  --+ 2
+       ,DT.TYPE_VALUE                       --+ 3
+       ,DT.CONSTANT_VALUE                   --+ 4
+       ,DT.SECUENCE                         --+ 5
+       ,DT.START_POSITION                   --+ 6
+       ,DT.END_POSITION                     --+ 7
+       ,DT.DATA_TYPE                        --+ 8
+       ,DT.FORMAT_MODEL                     --+ 9
+       ,chr(DT.PADDING_CHARACTER) PADDING_CHARACTER --+ 10
+       ,DT.DIRECTION_PADDING                --+ 11
+       ,decode(DT.DIRECTION_PADDING,'NONE','N','RIGTH','Y', 'LEFT', 'Y') NEEDS_PADDING --+ 12
+       ,DT.SQL_STATEMENT                    --+ 13
   FROM  XX_AP_EFT_FORMAT_DEFINITIONS DT
        ,XX_AP_EFT_FORMATS MS
  WHERE ms.format_id = g_FORMAT_USED
@@ -53,7 +53,7 @@ begin
     IF NOT w_init_file THEN
         w_file_name := w_file_name || TO_CHAR(SYSDATE,'_YYYY-MM-DD_HH24-MI-SS');
         w_file_out := UTL_FILE.FOPEN (w_file_dir, w_file_name || w_file_ext, 'w',32767);
-        DBMS_OUTPUT.PUT_LINE(' # Opening File ');
+        DBMS_OUTPUT.PUT_LINE('# Opening File #');
         w_init_file := true;
     END IF;
     
@@ -67,6 +67,7 @@ procedure close_file is
     begin
     UTL_FILE.FCLOSE(w_file_out);
     w_init_file := false;
+    DBMS_OUTPUT.PUT_LINE('# Closing File #');
     EXCEPTION
    WHEN OTHERS THEN
              UTL_FILE.FCLOSE(w_file_out);
