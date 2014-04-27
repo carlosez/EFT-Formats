@@ -84,7 +84,7 @@ begin
         DBMS_OUTPUT.PUT_LINE(BUFF);
     elsif WHICH = w_file then
         if(w_init_file) then
-            utl_file.put( w_file_out  , convert(BUFF || f_end_of_line , 'WE8ISO8859P1', 'UTF8') );
+            utl_file.put( w_file_out  , convert(BUFF  , 'WE8ISO8859P1', 'UTF8') );
             utl_file.fflush(w_file_out);
         end if;
    end if;

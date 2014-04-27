@@ -46,7 +46,6 @@ unbound_variable exception;
     F_Trx_Footer        Boolean := False;
     F_FORMAT_TYPE       Varchar2(100)   := k_delimited;
     F_Delimiter         Varchar2(1)     := chr(124);
-    f_end_of_line       varchar2(2)     := chr(10);
     F_Transfer_Ftp      Boolean := False;
            
     V_Sequence1         Number := 0;    --+ CURRENT NUMBER RECORD IN TRX
