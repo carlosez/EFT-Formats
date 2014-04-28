@@ -70,11 +70,12 @@ where bu.BANK_ACCOUNT_ID = ba.BANK_ACCOUNT_ID
 --   and ba.BANK_ID = :$FLEX$.XXSVLISTBAN
 ;
 
-select dc.PAYMENT_DOCUMENT_NAME
-,dc.PAYMENT_DOCUMENT_ID--, dc.*
-from ce_payment_documents dc
+ select 
+       dc.PAYMENT_DOCUMENT_NAME
+      ,dc.PAYMENT_DOCUMENT_ID--, dc.*
+  from ce_payment_documents dc
  where dc.INTERNAL_BANK_ACCOUNT_ID = 18161 -- :$FLEX$.XXSVLISTBAACCOUNTS
---    and dc.PAYMENT_DOC_CATEGORY = 'EFT PAY'
+--   and dc.PAYMENT_DOC_CATEGORY = 'EFT PAY'
 ;
 
 
