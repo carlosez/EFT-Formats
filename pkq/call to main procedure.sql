@@ -14,8 +14,13 @@ XX_AP_EFT_FORMATS_PKG.MAIN(
         ,Pin_End_Date       => '2013/12/10 00:00:00'
         ,Pin_Base_Amount    => 0
         ,Pin_Top_Amount     => 99999999
+        ,pin_process_type   => 'FINAL'
         ,Pin_Transfer_Ftp   => 'Y'
         ,Pin_Only_Unsent    => 'Y'
         ,Pin_debug_flag     =>  '2'
         );
 end;
+
+
+--select * from ce_payment_documents
+--where PAYMENT_DOCUMENT_ID = 416
