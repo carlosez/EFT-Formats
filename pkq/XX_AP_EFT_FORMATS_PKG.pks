@@ -108,21 +108,22 @@ unbound_variable exception;
     CURSOR C_FILE ( P_PART VARCHAR2 )  RETURN T_file;
 
 Procedure MAIN (
-         Errbuf     Out          Varchar2
-        ,Retcode    Out          Varchar2
-        ,pin_Bank_Acc            Number
-        ,Pin_Pay_Document        Number
-        ,Pin_Format_used         Number
-        ,Pin_Doc_Ini             Number
-        ,Pin_Doc_Fin             Number
-        ,Pin_Start_Date          Varchar2
-        ,Pin_End_Date            Varchar2
-        ,Pin_Base_Amount         Number
-        ,Pin_Top_Amount          Number
-        ,Pin_Transfer_Ftp        Varchar2
-        ,Pin_Only_Unsent         Varchar2
-        ,Pin_debug_flag          Varchar2 default '1'
-        );
+             Errbuf     Out          Varchar2       --+ 1
+            ,Retcode    Out          Varchar2       --+ 2
+            ,pin_Bank_Acc            Number         --+ 3
+            ,Pin_Pay_Document        Number         --+ 4
+            ,Pin_Format_used         Number         --+ 5
+            ,Pin_Doc_Ini             Number         --+ 6
+            ,Pin_Doc_Fin             Number         --+ 7
+            ,Pin_Start_Date          Varchar2       --+ 8
+            ,Pin_End_Date            Varchar2       --+ 9
+            ,Pin_Base_Amount         Number         --+ 10
+            ,Pin_Top_Amount          Number         --+ 11
+            ,pin_process_type        varchar2       --+ 12
+            ,Pin_Transfer_Ftp        Varchar2       --+ 13
+            ,Pin_Only_Unsent         Varchar2       --+ 14
+            ,Pin_debug_flag Varchar2 default '1'    --+ 15
+            );
 
 Procedure REPORT (
     Errbuf     Out      Varchar2,

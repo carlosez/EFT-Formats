@@ -192,9 +192,7 @@ begin
     PUTLINE(W_LOG,'+---------------------------------------------------------------------------+');
     
     BEGIN
-        PUTLINE(W_LOG,' PARAMETERS_P.BANK_ID:'|| to_char(g_BANK_ID));
-        PUTLINE(W_LOG,' PARAMETERS_P.BANK_ACC:'|| to_char(g_BANK_ACC));
-        PUTLINE(W_LOG,' PARAMETERS_P.PAY_DOCUMENT:'|| to_char(g_PAY_DOCUMENT));
+
     select b.BANK_NAME
     INTO V_BANK_NAME 
     FROM APPS.ce_banks_v b
@@ -366,7 +364,7 @@ FUNCTION XX_PADING_WITH_STR_PAD_DIR_LEN(STR VARCHAR2, PAD VARCHAR2, DIR VARCHAR2
    ##############################################################
 */
 
-FUNCTION GENERATE_VALUE (  SQLST      VARCHAR2   --1
+FUNCTION GENERATE_VALUE (     SQLST      VARCHAR2   --1
                              ,TYPE_VAL   VARCHAR2   --2
                              ,CHECK_ID   NUMBER     --3
                              ,INVOICE_ID NUMBER     --4
@@ -764,8 +762,8 @@ begin
     end if;
         
     begin
-        select  ms.file_extension   , DECODE( END_OF_LINE , 'LF' , CHR(10), 'CRLF', CHR(13)||CHR(10),  CHR(10)  )
-          into  W_File_Ext          , f_end_of_line
+        select  ms.file_extension   
+          into  W_File_Ext
           from XX_AP_EFT_FORMATS ms
          where ms.FORMAT_ID = P_Format_Used
          ;
@@ -886,21 +884,22 @@ end;
 
 
 procedure main (
-         Errbuf     Out          Varchar2
-        ,Retcode    Out          Varchar2
-        ,pin_Bank_Acc            Number
-        ,Pin_Pay_Document        Number
-        ,Pin_Format_used         Number
-        ,Pin_Doc_Ini             Number
-        ,Pin_Doc_Fin             Number
-        ,Pin_Start_Date          Varchar2
-        ,Pin_End_Date            Varchar2
-        ,Pin_Base_Amount         Number
-        ,Pin_Top_Amount          Number
-        ,Pin_Transfer_Ftp        Varchar2
-        ,Pin_Only_Unsent         Varchar2
-        ,Pin_debug_flag          Varchar2 default '1'
-        ) IS
+             Errbuf     Out          Varchar2       --+ 1
+            ,Retcode    Out          Varchar2       --+ 2
+            ,pin_Bank_Acc            Number         --+ 3
+            ,Pin_Pay_Document        Number         --+ 4
+            ,Pin_Format_used         Number         --+ 5
+            ,Pin_Doc_Ini             Number         --+ 6
+            ,Pin_Doc_Fin             Number         --+ 7
+            ,Pin_Start_Date          Varchar2       --+ 8
+            ,Pin_End_Date            Varchar2       --+ 9
+            ,Pin_Base_Amount         Number         --+ 10
+            ,Pin_Top_Amount          Number         --+ 11
+            ,pin_process_type        varchar2       --+ 12
+            ,Pin_Transfer_Ftp        Varchar2       --+ 13
+            ,Pin_Only_Unsent         Varchar2       --+ 14
+            ,Pin_debug_flag Varchar2 default '1'    --+ 15
+            ) IS
     
     Field                   Varchar2(4000);
     Line                    Clob;
@@ -1025,7 +1024,11 @@ procedure main (
 --                UPDATE_PROCESS_CHECKS;
             end if;
            null;
-            report_subrequest; --+ This Raise a Report of The payments Just Send
+            
+           if Pin_debug_flag != '1' then
+                report_subrequest; --+ This Raise a Report of The payments Just Send
+           end if; 
+            
             
           
         end if;
