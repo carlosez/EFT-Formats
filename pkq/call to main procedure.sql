@@ -21,6 +21,6 @@ XX_AP_EFT_FORMATS_PKG.MAIN(
         );
 end;
 
-
+-- Queries
 --select * from ce_payment_documents
 --where PAYMENT_DOCUMENT_ID = 416
