@@ -96,26 +96,7 @@ begin
 end;
 
  
-PROCEDURE UPDATE_PROCESS_CHECKS IS
-
-BEGIN
-    BEGIN
-        for x in c_checks loop
-            UPDATE AP_CHECKS_ALL CH
-               SET CH.ATTRIBUTE14 = 'NEW'
-             WHERE ch.check_id = x.check_id;
-        end loop;
-        COMMIT;
-    EXCEPTION
-    WHEN OTHERS THEN 
-    ROLLBACK;
-    END;
-    
-END;
- 
-
- function bool_to_char(p_bool in boolean) 
-return varchar2
+ function bool_to_char(p_bool in boolean)  return varchar2
 is
   l_chr  varchar2(1) := null;
 begin
@@ -123,18 +104,13 @@ begin
     return(l_chr);
 end;
 
- /*
-    ############################################################
-        FUNCION LOG_REPORT_DETAILS 
-    ############################################################
- */
+/*****************************************************************
+                   Levantar Report Sub Request  
+******************************************************************/
 
-    
 procedure report_subrequest is
-
 v_request_id NUMBER;
 begin
-    
     v_request_id    := APPS.FND_REQUEST .SUBMIT_REQUEST
                    ('XBOL'
                    ,'XX_AP_PAY_REG'
@@ -356,13 +332,12 @@ FUNCTION XX_PADING_WITH_STR_PAD_DIR_LEN(STR VARCHAR2, PAD VARCHAR2, DIR VARCHAR2
         RETURN ('');
     END;
 
+/******************************************************************
+        Funcion XX_GENERATE_VALUE
+        Pourpose : Crear El Valor De Cada Campo
+******************************************************************/
 
-/* 
-   #############################################################
-        FUNCION XX_GENERATE_VALUE
-        PROPOCITO : CREAR EL VALOR DE CADA CAMPO
-   ##############################################################
-*/
+
 
 FUNCTION GENERATE_VALUE (     SQLST      VARCHAR2   --1
                              ,TYPE_VAL   VARCHAR2   --2
@@ -396,7 +371,7 @@ begin
 
         CASE TYPE_VAL
 
-        WHEN k_delimited THEN
+        WHEN k_DINAMIC THEN
             SQL_STATEMENT := SQLST;
             begin
                 -- Opening and Parsing Cursor
@@ -522,7 +497,7 @@ begin
 
             end if;
             
-        WHEN 'CONSTANT' THEN
+        WHEN k_CONSTANT THEN
 
             CONSTANT_VALUE := CONST_VAL;
             CONSTANT_VALUE := REPLACE (CONSTANT_VALUE,'\T',CHR(9));
@@ -530,11 +505,11 @@ begin
             CONSTANT_VALUE := REPLACE (CONSTANT_VALUE,'\N','');
             OUT_STR := CONSTANT_VALUE;
 
-        WHEN 'SEQUENCE1' THEN NUMBER_VAL := v_SEQUENCE1;
-        WHEN 'SEQUENCE2' THEN NUMBER_VAL := V_SEQUENCE2;
-        WHEN 'SEQUENCE3' THEN NUMBER_VAL := V_SEQUENCE3;
-        WHEN 'TRX_LINES' THEN NUMBER_VAL := V_TRX_LINES;
-        WHEN 'SUM_TRANS' THEN NUMBER_VAL := V_SUM_TRANS;
+        WHEN k_SEQUENCE1 THEN NUMBER_VAL := v_SEQUENCE1;
+        WHEN k_SEQUENCE2 THEN NUMBER_VAL := V_SEQUENCE2;
+        WHEN k_SEQUENCE3 THEN NUMBER_VAL := V_SEQUENCE3;
+        WHEN k_TRX_LINES THEN NUMBER_VAL := V_TRX_LINES;
+        WHEN k_SUM_TRANS THEN NUMBER_VAL := V_SUM_TRANS;
 
         ELSE NULL;
         END CASE;
@@ -594,14 +569,12 @@ begin
     RETURN ('');
     
 END;
+--G_debug_flag
 
-
-/* 
-   #############################################################
-        PROCEDIMIENTO  CHECKS_LINE    
-        PROPOCITO : UNNA LINEA DE LA TRANSACCION Y/O EL DETALLE DE ESTA
-   ##############################################################
-*/
+/******************************************************************
+        Procedimiento  CHECKS_LINE    
+        Purpose         UNNA LINEA DE LA TRANSACCION Y/O EL DETALLE DE ESTA
+******************************************************************/
 
 PROCEDURE CHECKS_LINE( CHECK_ID  NUMBER ) IS
 
@@ -661,23 +634,23 @@ BEGIN
             FOR H IN C_FILE ( k_Detail )  LOOP
 
             FIELD := GENERATE_VALUE (
-                     H.SQL_STATEMENT, --1
-                     H.TYPE_VALUE ,     --2
-                     CHECK_ID   ,       --3
-                     W.INVOICE_ID,      --4
-                     H.DATA_TYPE,       --5
-                     H.FORMAT_model,    --6
-                     H.CONSTANT_VALUE, --9
-                     H.NEEDS_PADDING,   --10
-                     H.PADDING_CHARACTER,--11
-                     H.DIRECTION_PADDING,       --12
+                     H.SQL_STATEMENT,       --1
+                     H.TYPE_VALUE ,         --2
+                     CHECK_ID   ,           --3
+                     W.INVOICE_ID,          --4
+                     H.DATA_TYPE,           --5
+                     H.FORMAT_model,        --6
+                     H.CONSTANT_VALUE,      --9
+                     H.NEEDS_PADDING,       --10
+                     H.PADDING_CHARACTER,   --11
+                     H.DIRECTION_PADDING,   --12
                      H.END_POSITION - H.START_POSITION +1,        --13
-                     H.FORMAT_TYPE,      --14
-                     H.DELIMITER           --15
+                     H.FORMAT_TYPE,         --14
+                     H.DELIMITER            --15
             );
 
             --fnd_file.PUT_LINE(fnd_file.OUTPUT,'PART2 '||PART2);
-            DETAIL_LINE := DETAIL_LINE||FIELD;
+                DETAIL_LINE := DETAIL_LINE||FIELD;
 
             END LOOP;
 
@@ -703,12 +676,10 @@ BEGIN
     putline(w_log,'PROCEDURE CHECKS_LINE Message Is: '||SQLERRM);         
 END;                       
                       
-/* 
-   #############################################################
+/******************************************************************
         PROCEDIMIENTO PRINCIPAL 
         PROPOCITO : CREAR LA ESTUCTURA DEL ARCHIVO
-   ##############################################################
-*/
+******************************************************************/
 
 
 
@@ -725,13 +696,11 @@ Procedure Initialize (
           ,P_Top_Amount         Number      --+ 10
           ,P_Transfer_Ftp       Varchar2    --+ 11
           ,P_Only_Unsent        Varchar2    --+ 12
-          ,P_Debugg_Flag        Varchar2    --+ 13
+          ,P_Debug_Flag        Varchar2     --+ 13
                       ) Is
 
-
-
     CURSOR FORMAT  IS
-        SELECT DISTINCT
+    SELECT DISTINCT
            MS.FORMAT_ID
           ,CHR(MS.ASCII_DELIMITER) DELIMITER
           ,MS.FORMAT_TYPE
@@ -740,13 +709,13 @@ Procedure Initialize (
            ,XX_AP_EFT_FORMATS MS
      WHERE ms.FORMAT_ID = g_FORMAT_USED
        AND MS.ENABLE_FLAG = 'Y'
-       AND MS.FORMAT_ID = DT.FORMAT_ID;
+       AND MS.FORMAT_ID = DT.FORMAT_ID
+       ;
 
 begin
     
-     E_Start_Flag := true;
+    E_Start_Flag := true;
 
-    --G_BANK_ID       := P_Bank_Id;
     G_BANK_ACC      := P_Bank_Acc;
     G_PAY_DOCUMENT  := P_Pay_Document;
     G_Format_Used   := P_Format_Used; 
@@ -757,10 +726,18 @@ begin
     G_DOC_INI       := P_DOC_INI;
     G_DOC_FIN       := P_DOC_FIN;
     
+
+    if P_Debug_Flag != '1' then
+        g_Debug_Flag := true;
+        W_Log := w_dbms;
+        w_WICH := W_File;
+    end if;
+        
     if      P_Only_Unsent = 'Y' then    G_STATUS_CHECK  := k_NEW;
     elsif   P_Only_Unsent = 'N' then    G_STATUS_CHECK  := K_PRINTED;
     end if;
-        
+
+
     begin
         select  ms.file_extension   
           into  W_File_Ext
@@ -797,10 +774,14 @@ begin
                
     else   
         f_transfer_ftp := false;
-        w_wich := w_output;
-        if P_Debugg_Flag != '1' then
+        
+        if not G_debug_flag then
+            w_wich := w_output;
+        else
             w_WICH := W_File;
+            open_file;
         end if;
+
     end if;
            
  
@@ -906,17 +887,6 @@ procedure main (
     
     BEGIN
 
-        if Pin_debug_flag != '1' then
-            W_Log := w_dbms;
-            w_WICH := W_File;
-        end if;
-
-        putline(w_log,'');
-        putline(w_log,'Start process log');
-        putline(w_log,'+---------------------------------------------------------------------------+');
-
-
-
         --+ set Global Varibles for formating and Output
         --+ Checks if minimun requirements are place, also the correct configuration
 
@@ -934,13 +904,17 @@ procedure main (
                   ,P_Top_Amount         => Pin_Top_Amount
                   ,P_TRANSFER_FTP       => Pin_Transfer_Ftp
                   ,P_Only_Unsent        => Pin_Only_Unsent
-                  ,p_debugg_flag        => Pin_debug_flag
+                  ,p_debug_flag         => Pin_debug_flag
                    );
+                   
+        putline(w_log,'');
+        putline(w_log,'Start process log');
+        putline(w_log,'+---------------------------------------------------------------------------+');
+
 
 
         IF E_Start_Flag THEN
 
-       
             IF f_TRX_HEADER THEN
 
                 FOR L IN C_FILE(k_Header) LOOP
@@ -1080,7 +1054,7 @@ procedure REPORT (
                   ,P_Top_Amount         => TOP_AMOUNT
                   ,P_TRANSFER_FTP       => null
                   ,P_Only_Unsent        => null
-                  ,p_debugg_flag        => null
+                  ,p_debug_flag         => null
                    );
 
        LOG_REPORT_DETAILS (w_output);
@@ -1112,9 +1086,9 @@ PROCEDURE XX_UPDATE_CHECKS_STATUS (
           SET_STATUS      VARCHAR2
           ) IS
 
-    ROWS_UPDATED NUMBER;   
-    aux_rows     number;
-    USER_GRANTED_ID  NUMBER;    
+    ROWS_UPDATED        NUMBER;   
+    aux_rows            number;
+    USER_GRANTED_ID     NUMBER;    
     
 BEGIN
 
@@ -1131,8 +1105,8 @@ BEGIN
             ;
         exception
         when others then
-        putline(w_log,'Error Retrieving Parameters ');
-        putline(w_log,'SQLERRM: '||sqlerrm );
+            putline(w_log,'Error Retrieving Parameters ');
+            putline(w_log,'SQLERRM: '||sqlerrm );
         end;
         
         G_PAY_DOCUMENT := PAY_DOCUMENT;
