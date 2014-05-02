@@ -35,10 +35,10 @@ SELECT  MS.FORMAT_TYPE                      --+ 1
        ,DT.END_POSITION                     --+ 7
        ,DT.DATA_TYPE                        --+ 8
        ,DT.FORMAT_MODEL                     --+ 9
-       ,chr(DT.PADDING_CHARACTER) PADDING_CHARACTER --+ 10
-       ,DT.DIRECTION_PADDING                --+ 11
-       ,decode(DT.DIRECTION_PADDING,'NONE','N','RIGTH','Y', 'LEFT', 'Y') NEEDS_PADDING --+ 12
-       ,DT.SQL_STATEMENT                    --+ 13
+       ,chr( nvl( DT.PADDING_CHARACTER, 32  )) PADDING_CHARACTER --+ 10
+       ,decode(FORMAT_TYPE , 'DELIMITED', DT.DIRECTION_PADDING , 'FIXED_WIDTH',  decode( nvl(DT.DIRECTION_PADDING,'NONE'),'NONE','RIGTH',DT.DIRECTION_PADDING )  ) DIRECTION_PADDING                --+ 11
+       ,decode(FORMAT_TYPE , 'FIXED_WIDTH','Y', decode(DT.DIRECTION_PADDING,'NONE','N','RIGTH','Y', 'LEFT', 'Y') )NEEDS_PADDING --+ 12
+       ,DT.SQL_STATEMENT                     --+ 13
   FROM  XX_AP_EFT_FORMAT_DEFINITIONS DT
        ,XX_AP_EFT_FORMATS MS
  WHERE ms.format_id = g_FORMAT_USED
@@ -341,7 +341,8 @@ FUNCTION XX_PADING_WITH_STR_PAD_DIR_LEN(STR VARCHAR2, PAD VARCHAR2, DIR VARCHAR2
 
 
 
-FUNCTION GENERATE_VALUE (     SQLST      VARCHAR2   --1
+FUNCTION GENERATE_VALUE (     SECUENCE   NUMBER     -- 0
+                             ,SQLST      VARCHAR2   --1
                              ,TYPE_VAL   VARCHAR2   --2
                              ,CHECK_ID   NUMBER     --3
                              ,INVOICE_ID NUMBER     --4
@@ -360,9 +361,6 @@ FUNCTION GENERATE_VALUE (     SQLST      VARCHAR2   --1
     DATE_VAL   DATE;
     NUMBER_VAL NUMBER;
     SQL_STATEMENT VARCHAR2(4000);
-    PAD_CHARACTER   VARCHAR2(4);
-    CONSTANT_VALUE  VARCHAR2(4000);
-    
     curid           INTEGER;
     src_cur         curtype;
     ret number;
@@ -498,14 +496,10 @@ begin
                 putline(w_log,'SQL Statement : '||SQL_STATEMENT);
 
             end if;
-            
+
         WHEN k_CONSTANT THEN
 
-            CONSTANT_VALUE := CONST_VAL;
-            CONSTANT_VALUE := REPLACE (CONSTANT_VALUE,'\T',CHR(9));
-            CONSTANT_VALUE := REPLACE (CONSTANT_VALUE,'\E',' ');
-            CONSTANT_VALUE := REPLACE (CONSTANT_VALUE,'\N','');
-            OUT_STR := CONSTANT_VALUE;
+            OUT_STR := CONST_VAL;
 
         WHEN k_SEQUENCE1 THEN NUMBER_VAL := v_SEQUENCE1;
         WHEN k_SEQUENCE2 THEN NUMBER_VAL := V_SEQUENCE2;
@@ -516,48 +510,49 @@ begin
         ELSE NULL;
         END CASE;
         
-        
         CASE DATA_TYPE
-        WHEN 'DATE' THEN
-        OUT_STR := TO_CHAR(DATE_VAL,FORMAT);
-        WHEN 'NUMBER' THEN
-        OUT_STR := TRIM(TO_CHAR(NUMBER_VAL,FORMAT));
-        ELSE
-        NULL;
-        END CASE;
-    
-
-        IF  (PAD_DIR in ('RIGHT','LEFT' )  and  LEN > 0  )
-        or  (FORMAT = k_fixed and LEN > 0 )  THEN
-
-            --fnd_file.PUT_LINE(fnd_file.OUTPUT,'PAD_CHARACTER ->'||PAD_CHARACTER);
-            IF PAD_CHAR IS NULL THEN
-                CASE DATA_TYPE
-                WHEN 'NUMBER' THEN PAD_CHARACTER := '0';
-                WHEN 'STRING' THEN PAD_CHARACTER := ' ';
-                ELSE PAD_CHARACTER := ' ';
-                END CASE;
+            WHEN 'DATE' THEN
+                OUT_STR := TO_CHAR(DATE_VAL,FORMAT);
+            WHEN 'NUMBER' THEN
+                OUT_STR := TRIM(TO_CHAR(NUMBER_VAL,FORMAT));
             ELSE
-                CASE PAD_CHAR
-                WHEN 'T' THEN PAD_CHARACTER := CHR(9);
-                WHEN 'E' THEN PAD_CHARACTER := ' ';
-                ELSE PAD_CHARACTER := PAD_CHAR;
-                END CASE;
-            END IF;
-
-            --fnd_file.PUT_LINE(fnd_file.OUTPUT,'OUT_STR ->'||OUT_STR);
+                NULL;
+        END CASE;
+                    
+        PUTLINE(W_Log,'-----------------------'  );
+        PUTLINE(W_Log,'SEQ=>'   ||to_char( SECUENCE ) );
+        PUTLINE(W_Log,'LEN=>'   ||to_char( LEN ));
+        PUTLINE(W_Log,'TYP=>'   ||k_fixed);
+                
+        if len < 1 then
+            PUTLINE(W_Log,'*** Longitud es negativa ***' ||to_char( LEN ));
+        end if;
+        
+        IF   NEEDS_PA = 'Y' 
+        THEN
+            if OUT_STR is null then
+               OUT_STR := ' ';
+            end if;
+            PUTLINE(W_Log,'IN =>'|| OUT_STR );
+            PUTLINE(W_Log,'LEN=>'|| LEN );
+            PUTLINE(W_Log,'DIR=>'|| PAD_DIR );            
+            PUTLINE(W_Log,'CHR=>'|| PAD_CHAR );
+            --PUTLINE(W_Log,'ASC=>'|| ascii(PAD_CHARACTER) );
+            
+            
             CASE PAD_DIR
-            WHEN 'RIGHT' THEN OUT_STR := RPAD(OUT_STR,LEN,PAD_CHARACTER);
-            WHEN 'LEFT'  THEN OUT_STR := LPAD(OUT_STR,LEN,PAD_CHARACTER);
-            ELSE OUT_STR := RPAD(OUT_STR,LEN,PAD_CHARACTER);
+            WHEN 'RIGHT' THEN   OUT_STR := RPAD(OUT_STR,LEN,PAD_CHAR);
+            WHEN 'LEFT'  THEN   OUT_STR := LPAD(OUT_STR,LEN,PAD_CHAR);
+            ELSE 
+                                OUT_STR := RPAD(OUT_STR,LEN,PAD_CHAR);
             END CASE;
-
         END IF;
 
-        --fnd_file.PUT_LINE(fnd_file.OUTPUT,'OUT_STR2 ->'||OUT_STR);
+        PUTLINE(W_Log,'OUT=>'|| OUT_STR );
+        
         IF  TYPE_FILE = k_delimited THEN
-        OUT_STR := REPLACE(OUT_STR,DELIMITER,'');
-        OUT_STR := OUT_STR || DELIMITER;
+            OUT_STR := REPLACE(OUT_STR,DELIMITER,'');
+            OUT_STR := OUT_STR || DELIMITER;
         END IF;
 
         RETURN (OUT_STR);
@@ -599,7 +594,8 @@ BEGIN
     FOR Q IN C_FILE ( k_Body ) LOOP
 
         FIELD:= GENERATE_VALUE (
-              Q.SQL_STATEMENT        --1
+              Q.SECUENCE             --0
+             ,Q.SQL_STATEMENT        --1
              ,Q.TYPE_VALUE           --2
              ,CHECK_ID               --3
              ,NULL                   --4
@@ -636,6 +632,7 @@ BEGIN
             FOR H IN C_FILE ( k_Detail )  LOOP
                 
             FIELD := GENERATE_VALUE (
+                     H.SECUENCE,            --0
                      H.SQL_STATEMENT,       --1
                      H.TYPE_VALUE ,         --2
                      CHECK_ID   ,           --3
@@ -949,6 +946,7 @@ procedure main (
                 FOR L IN C_FILE(k_Header) LOOP
 
                     FIELD := GENERATE_VALUE (
+                             L.SECUENCE,
                              L.SQL_STATEMENT,
                              L.TYPE_VALUE ,
                              NULL,
@@ -991,6 +989,7 @@ procedure main (
                 FOR L IN C_FILE(k_TRAILER) LOOP
 
                     FIELD := GENERATE_VALUE (
+                         L.SECUENCE ,
                          L.SQL_STATEMENT,
                          L.TYPE_VALUE ,
                          NULL,
