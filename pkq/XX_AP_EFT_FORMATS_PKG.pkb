@@ -292,23 +292,35 @@ end;
     END GET_string_VALUE;
 
 
-    procedure bind_variables_num(p_curid number, p_var_name varchar2, p_var_num number ) is
+    procedure bind_variables_num(p_curid number, p_sql_stmt varchar2 , p_var_name varchar2, p_var_num number ) is
     begin
-        DBMS_SQL.BIND_VARIABLE(p_curid,p_var_name, p_var_num);
+        if p_var_num is not null then
+            if instr ( p_sql_stmt , p_var_name ,1,1) > 0 then
+                DBMS_SQL.BIND_VARIABLE(p_curid,p_var_name, p_var_num);
+            end if;
+        end if;
     exception when unbound_variable then
-        null;
+        putline(w_log,'bind_variables_num '|| SQLERRM);
     end;
 
-    procedure bind_variables_str(p_curid number, p_var_name varchar2, p_var_str varchar2 ) is
+    procedure bind_variables_str(p_curid number, p_sql_stmt varchar2 , p_var_name varchar2, p_var_str varchar2 ) is
     begin
-        DBMS_SQL.BIND_VARIABLE(p_curid,p_var_name, p_var_str);
+        if p_var_str is not null then
+            if instr ( p_sql_stmt , p_var_name ,1,1) > 0 then
+                DBMS_SQL.BIND_VARIABLE(p_curid,p_var_name, p_var_str);
+            end if;
+        end if;
     exception when unbound_variable then
         null;
     end;
     
-    procedure bind_variables_date(p_curid number, p_var_name varchar2, p_var_date date ) is
+    procedure bind_variables_date(p_curid number, p_sql_stmt varchar2 , p_var_name varchar2, p_var_date date ) is
     begin
-        DBMS_SQL.BIND_VARIABLE(p_curid,p_var_name, p_var_date);
+        if p_var_date is not null then
+            if instr ( p_sql_stmt , p_var_name ,1,1) > 0 then
+                DBMS_SQL.BIND_VARIABLE(p_curid,p_var_name, p_var_date);
+            end if;
+        end if;
     exception when unbound_variable then
         null;
     end;
@@ -388,43 +400,21 @@ begin
                 
                 --Binding Variables
                 if flag_ok_cursor = 'S' then
-    
-                    IF  CHECK_ID IS NOT NULL THEN
-                        bind_variables_num(curid,':IDCHECK',CHECK_ID);
-                    END IF;
-                    
-                    IF  INVOICE_ID IS NOT NULL THEN
-                        bind_variables_num(curid,':INVOICEID',INVOICE_ID);
-                    END IF;
-                    
-                    IF  G_PAY_DOCUMENT IS NOT NULL THEN
-                        bind_variables_num(curid,':PAY_DOCUMENT',G_PAY_DOCUMENT);
-                    END IF;
-                    
-                    IF  G_BASE_AMOUNT IS NOT NULL THEN
-                        bind_variables_num(curid,':BASE_AMOUNT',G_BASE_AMOUNT);
-                    END IF;
-                    
-                    IF  G_TOP_AMOUNT IS NOT NULL THEN
-                        bind_variables_num(curid,':TOP_AMOUNT',G_TOP_AMOUNT);
-                    END IF;
-                    
-                    IF  G_DOC_INI IS NOT NULL THEN
-                        bind_variables_num(curid,':P_DOC_INI',G_DOC_INI);
-                    END IF;
-                    
-                    IF  G_DOC_FIN IS NOT NULL THEN
-                        bind_variables_num(curid,':P_DOC_FIN',G_DOC_FIN);
-                    END IF;
-                    
-                    IF  G_START_DATE IS NOT NULL THEN
-                        bind_variables_date(curid,':P_START_DATE',to_date(G_START_DATE,'YYYY/MM/DD HH24:MI:SS'));
-                    END IF;
-                    
-                    IF  G_START_DATE IS NOT NULL THEN
-                        bind_variables_date(curid,':P_END_DATE',to_date(G_END_DATE,'YYYY/MM/DD HH24:MI:SS'));
-                    END IF;
 
+                        bind_variables_num (curid,SQL_STATEMENT,':IDCHECK',CHECK_ID);
+                        bind_variables_num (curid,SQL_STATEMENT,':CHECK_ID',CHECK_ID);
+                        bind_variables_num (curid,SQL_STATEMENT,':INVOICEID',INVOICE_ID);
+                        bind_variables_num (curid,SQL_STATEMENT,':PAY_DOCUMENT',G_PAY_DOCUMENT);
+                        bind_variables_num (curid,SQL_STATEMENT,':BASE_AMOUNT',G_BASE_AMOUNT);
+                        bind_variables_num (curid,SQL_STATEMENT,':TOP_AMOUNT',G_TOP_AMOUNT);
+                        bind_variables_num (curid,SQL_STATEMENT,':P_DOC_INI',G_DOC_INI);
+                        bind_variables_num (curid,SQL_STATEMENT,':P_DOC_FIN',G_DOC_FIN);
+                        bind_variables_date(curid,SQL_STATEMENT,':P_START_DATE',G_START_DATE);
+                        bind_variables_date(curid,SQL_STATEMENT,':P_END_DATE'  ,G_START_DATE);
+                        bind_variables_num (curid,SQL_STATEMENT,':V_TRX_LINES',V_Trx_Lines);
+                        bind_variables_num (curid,SQL_STATEMENT,':V_SUM_TRANS',V_Sum_Trans);
+                        bind_variables_num (curid,SQL_STATEMENT,':V_SEQUENCE3',V_SEQUENCE3);
+                    
                 end if;
                 
                 -- Excecuting cursor
