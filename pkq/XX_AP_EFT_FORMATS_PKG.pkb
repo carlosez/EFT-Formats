@@ -76,22 +76,24 @@ end;
 
 procedure PUTLINE(WHICH in number, BUFF in varchar2) is
 begin
-   if WHICH = FND_FILE.LOG then
-      fnd_file.put_line(WHICH, BUFF);
-    elsif WHICH = FND_FILE.OUTPUT then
-      fnd_file.put_line(WHICH, BUFF);
-    elsif WHICH = w_dbms then
-        DBMS_OUTPUT.PUT_LINE(BUFF);
-    elsif WHICH = w_file then
+    if      WHICH = FND_FILE.LOG then
+                fnd_file.put_line(WHICH, BUFF);
+    elsif   WHICH = FND_FILE.OUTPUT then
+                fnd_file.put_line(WHICH, BUFF);
+    elsif   WHICH = w_dbms then
+                    DBMS_OUTPUT.PUT_LINE(BUFF);
+    elsif   WHICH = w_file then
         if(w_init_file) then
-            utl_file.put( w_file_out  , convert(BUFF  , 'WE8ISO8859P1', 'UTF8') );
+            utl_file.put( w_file_out  , convert(BUFF  ,  'WE8ISO8859P1', 'UTF8')   );
             utl_file.fflush(w_file_out);
         end if;
-   end if;
+    end if;
    exception
       WHEN OTHERS THEN
             DBMS_OUTPUT.PUT_LINE('error abriendo archivo ' ||SQLERRM  );
-             UTL_FILE.FCLOSE(w_file_out);
+             if F_Transfer_Ftp then
+             close_file;
+             end if;
             fnd_file.put_line(fnd_file.log,'PUTLINE Error Message Is: '||SQLERRM);
 end;
 
@@ -451,7 +453,7 @@ begin
                 putline(w_log,'SQL_STATEMENT   : '||SQL_STATEMENT);
                 putline(w_log,'curid           : '||curid);
                 putline(w_log,'ERROR           : '||sqlerrm);
-                putline(w_log,'ret            : '|| ret);
+                putline(w_log,'ret             : '|| ret);
                 flag_ok_cursor  := 'E';
                 begin
                   IF src_cur%ISOPEN THEN
@@ -525,7 +527,8 @@ begin
         END CASE;
     
 
-        IF NEEDS_PA = 'Y' OR TYPE_FILE = k_fixed THEN
+        IF  (PAD_DIR in ('RIGHT','LEFT' )  and  LEN > 0  )
+        or  (FORMAT = k_fixed and LEN > 0 )  THEN
 
             --fnd_file.PUT_LINE(fnd_file.OUTPUT,'PAD_CHARACTER ->'||PAD_CHARACTER);
             IF PAD_CHAR IS NULL THEN
@@ -540,10 +543,6 @@ begin
                 WHEN 'E' THEN PAD_CHARACTER := ' ';
                 ELSE PAD_CHARACTER := PAD_CHAR;
                 END CASE;
-            END IF;
-
-            IF OUT_STR IS NULL THEN
-               OUT_STR := PAD_CHARACTER;
             END IF;
 
             --fnd_file.PUT_LINE(fnd_file.OUTPUT,'OUT_STR ->'||OUT_STR);
@@ -595,6 +594,8 @@ BEGIN
     
     TRX_LINE :='';
     
+    putline(w_log,'************************* Begin Process for BODY ************************* ');
+    
     FOR Q IN C_FILE ( k_Body ) LOOP
 
         FIELD:= GENERATE_VALUE (
@@ -621,8 +622,9 @@ BEGIN
      trx_line :=  substr(trx_line,1,length(trx_line)-1);
     END IF;
     
-    PUTLINE(w_file,trx_line );  
-
+    --PUTLINE(w_wich,trx_line );  
+    fnd_file.put(w_wich, trx_line);
+    
     IF f_TRX_DETAIL THEN
 
         v_SEQUENCE2 := 1;
@@ -630,9 +632,9 @@ BEGIN
         FOR W IN INVOICES(CHECK_ID) LOOP
 
             DETAIL_LINE := '';
-
+            putline(w_log,'************************* Begin Process for DETAIL ************************* ');
             FOR H IN C_FILE ( k_Detail )  LOOP
-
+                
             FIELD := GENERATE_VALUE (
                      H.SQL_STATEMENT,       --1
                      H.TYPE_VALUE ,         --2
@@ -659,7 +661,8 @@ BEGIN
                 DETAIL_LINE := SUBSTR(DETAIL_LINE,1,LENGTH(DETAIL_LINE)-1);
             END IF;
 
-            PUTLINE(w_wich,DETAIL_LINE);
+            --PUTLINE(w_wich,DETAIL_LINE);
+            fnd_file.put(w_wich, DETAIL_LINE);
             
             v_SEQUENCE2 := v_SEQUENCE2 + 1;
             v_SEQUENCE3 := v_SEQUENCE3 + 1;
@@ -731,7 +734,11 @@ begin
         g_Debug_Flag := true;
         W_Log := w_dbms;
         w_WICH := W_File;
+        putline(W_Log,'Debug Is Set To 1 ' );
+    else
+        putline(W_Log,'Debug Is Set To ' || P_Debug_Flag );
     end if;
+
         
     if      P_Only_Unsent = 'Y' then    G_STATUS_CHECK  := k_NEW;
     elsif   P_Only_Unsent = 'N' then    G_STATUS_CHECK  := K_PRINTED;
@@ -773,6 +780,7 @@ begin
         end if;
                
     else   
+        PUTLINE(w_LOG,'The output will be by default ');
         f_transfer_ftp := false;
         
         if not G_debug_flag then
@@ -783,7 +791,8 @@ begin
         end if;
 
     end if;
-           
+    putline(W_Log,'CODE LOG '|| to_char(W_Log) );
+    putline(W_Log,'CODE OUT '|| to_char(w_WICH) );     
  
     FOR R IN FORMAT LOOP
                     
@@ -822,29 +831,29 @@ begin
         e_ERROR_CODE := '1';
     END IF;
     
-    putline(w_log,' k_Header                 => ' ||k_Header );
-    putline(w_log,' k_Body                   => ' ||k_Body );
-    putline(w_log,' k_Detail                 => ' ||k_Detail );
-    putline(w_log,' k_TRAILER                => ' ||k_TRAILER );
-    putline(w_log,' k_delimited              => ' ||k_delimited );
-    putline(w_log,' k_fixed                  => ' ||k_fixed );
-    putline(w_log,' k_NEW                    => ' ||k_NEW );
-    putline(w_log,' K_PRINTED                => ' ||K_PRINTED );
-    putline(w_log,' F_Trx_Header             => ' ||bool_to_char(F_Trx_Header ) );
-    putline(w_log,' F_Trx_Body               => ' ||bool_to_char(F_Trx_Body ) );
-    putline(w_log,' F_Trx_Detail             => ' ||bool_to_char(F_Trx_Detail ) );
-    putline(w_log,' F_Trx_Footer             => ' ||bool_to_char(F_Trx_Footer ) );
-    putline(w_log,' F_FORMAT_TYPE            => ' ||F_FORMAT_TYPE );
-    putline(w_log,' F_Delimiter              => ' ||F_Delimiter );
-    putline(w_log,' F_Transfer_Ftp           => ' ||bool_to_char(F_Transfer_Ftp ) );
-    --putline(w_log,' f_end_of_line            => ' ||f_end_of_line );
-    putline(w_log,' V_Sequence1              => ' ||V_Sequence1 );
-    putline(w_log,' V_Sequence2              => ' ||V_Sequence2 );
-    putline(w_log,' V_Sequence3              => ' ||V_Sequence3 );
-    putline(w_log,' V_Detail_Lines           => ' ||V_Detail_Lines );
+--    putline(w_log,' k_Header                 => ' ||k_Header );
+--    putline(w_log,' k_Body                   => ' ||k_Body );
+--    putline(w_log,' k_Detail                 => ' ||k_Detail );
+--    putline(w_log,' k_TRAILER                => ' ||k_TRAILER );
+--    putline(w_log,' k_delimited              => ' ||k_delimited );
+--    putline(w_log,' k_fixed                  => ' ||k_fixed );
+--    putline(w_log,' k_NEW                    => ' ||k_NEW );
+--    putline(w_log,' K_PRINTED                => ' ||K_PRINTED );
+--    putline(w_log,' F_Trx_Header             => ' ||bool_to_char(F_Trx_Header ) );
+--    putline(w_log,' F_Trx_Body               => ' ||bool_to_char(F_Trx_Body ) );
+--    putline(w_log,' F_Trx_Detail             => ' ||bool_to_char(F_Trx_Detail ) );
+--    putline(w_log,' F_Trx_Footer             => ' ||bool_to_char(F_Trx_Footer ) );
+--    putline(w_log,' F_FORMAT_TYPE            => ' ||F_FORMAT_TYPE );
+--    putline(w_log,' F_Delimiter              => ' ||F_Delimiter );
+--    putline(w_log,' F_Transfer_Ftp           => ' ||bool_to_char(F_Transfer_Ftp ) );
+--    --putline(w_log,' f_end_of_line            => ' ||f_end_of_line );
+--    putline(w_log,' V_Sequence1              => ' ||V_Sequence1 );
+--    putline(w_log,' V_Sequence2              => ' ||V_Sequence2 );
+--    putline(w_log,' V_Sequence3              => ' ||V_Sequence3 );
+--    putline(w_log,' V_Detail_Lines           => ' ||V_Detail_Lines );
     putline(w_log,' V_Trx_Lines              => ' ||V_Trx_Lines );
     putline(w_log,' V_Sum_Trans              => ' ||V_Sum_Trans );
-    putline(w_log,' V_Report_Lines           => ' ||V_Report_Lines );
+--    putline(w_log,' V_Report_Lines           => ' ||V_Report_Lines );
     putline(w_log,' W_Log                    => ' ||W_Log );
     putline(w_log,' W_Output                 => ' ||W_Output );
     putline(w_log,' W_File                   => ' ||W_File );
@@ -887,6 +896,25 @@ procedure main (
     
     BEGIN
 
+
+        fnd_file.put_line(fnd_file.log,'---------------------------------------------------');
+        fnd_file.put_line(fnd_file.log,',Errbuf             =>''' || to_char(Errbuf ) ||'''' );
+        fnd_file.put_line(fnd_file.log,',Retcode            =>''' || to_char(Retcode ) ||'''' );
+        fnd_file.put_line(fnd_file.log,',pin_Bank_Acc       =>''' || to_char(pin_Bank_Acc ) ||'''' );
+        fnd_file.put_line(fnd_file.log,',Pin_Pay_Document   =>''' || to_char(Pin_Pay_Document ) ||'''' );
+        fnd_file.put_line(fnd_file.log,',Pin_Format_used    =>''' || to_char(Pin_Format_used ) ||'''' );
+        fnd_file.put_line(fnd_file.log,',Pin_Doc_Ini        =>''' || to_char(Pin_Doc_Ini ) ||'''' );
+        fnd_file.put_line(fnd_file.log,',Pin_Doc_Fin        =>''' || to_char(Pin_Doc_Fin ) ||'''' );
+        fnd_file.put_line(fnd_file.log,',Pin_Start_Date     =>''' || to_char(Pin_Start_Date ) ||'''' );
+        fnd_file.put_line(fnd_file.log,',Pin_End_Date       =>''' || to_char(Pin_End_Date ) ||'''' );
+        fnd_file.put_line(fnd_file.log,',Pin_Base_Amount    =>''' || to_char(Pin_Base_Amount ) ||'''' );
+        fnd_file.put_line(fnd_file.log,',Pin_Top_Amount     =>''' || to_char(Pin_Top_Amount ) ||'''' );
+        fnd_file.put_line(fnd_file.log,',pin_process_type   =>''' || to_char(pin_process_type ) ||'''' );
+        fnd_file.put_line(fnd_file.log,',Pin_Transfer_Ftp   =>''' || to_char(Pin_Transfer_Ftp ) ||'''' );
+        fnd_file.put_line(fnd_file.log,',Pin_Only_Unsent    =>''' || to_char(Pin_Only_Unsent ) ||'''' );
+        fnd_file.put_line(fnd_file.log,',Pin_debug_flag     =>''' || to_char(Pin_debug_flag ) ||'''' );
+        fnd_file.put_line(fnd_file.log,'---------------------------------------------------');
+
         --+ set Global Varibles for formating and Output
         --+ Checks if minimun requirements are place, also the correct configuration
 
@@ -916,7 +944,8 @@ procedure main (
         IF E_Start_Flag THEN
 
             IF f_TRX_HEADER THEN
-
+                putline(w_WICH,'************************* Begin Process for HEADER  ************************* ');
+                
                 FOR L IN C_FILE(k_Header) LOOP
 
                     FIELD := GENERATE_VALUE (
@@ -942,12 +971,12 @@ procedure main (
                 LINE := SUBSTR(LINE,1,LENGTH(LINE)-1);
                 END IF;
 
-                PUTLINE(w_wich,LINE);
+                --PUTLINE(w_wich, SUBSTR( LINE, 1, 1024 )   );
+                fnd_file.put(w_wich, LINE);
 
             END IF;
           
-            IF f_TRX_BODY THEN
-                
+            IF f_TRX_BODY THEN                
                 v_SEQUENCE1 := 1;
 
                 for i in c_checks loop
@@ -957,7 +986,8 @@ procedure main (
             END IF;
            
             IF f_TRX_FOOTER THEN
-
+                putline(w_log,'************************* Begin Process for TRAILER  ************************* ');
+                
                 FOR L IN C_FILE(k_TRAILER) LOOP
 
                     FIELD := GENERATE_VALUE (
@@ -983,7 +1013,8 @@ procedure main (
                 LINE := SUBSTR(LINE,1,LENGTH(LINE)-1);
                 END IF;
 
-                PUTLINE(w_wich,LINE);
+                --PUTLINE(w_wich,LINE);
+                fnd_file.put(w_wich, LINE);
 
             END IF;
                
@@ -1000,7 +1031,10 @@ procedure main (
            null;
             
            if Pin_debug_flag != '1' then
-                report_subrequest; --+ This Raise a Report of The payments Just Send
+                putline(w_log,'#####################################################');
+                putline(w_log,'Sub request Will Be Raised at this point');
+               -- LOG_REPORT_DETAILS (w_output);
+                --report_subrequest; --+ This Raise a Report of The payments Just Send
            end if; 
             
             
@@ -1013,7 +1047,7 @@ procedure main (
         
         putline(w_log,'+---------------------------------------------------------------------------+');
         putline(w_log,'End process log');
-        
+        commit;
     EXCEPTION
         WHEN OTHERS THEN
             putline(w_log,'Main Error Message Is: '||SQLERRM);
