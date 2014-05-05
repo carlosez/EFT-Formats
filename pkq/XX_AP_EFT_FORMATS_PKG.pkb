@@ -401,19 +401,19 @@ begin
                 --Binding Variables
                 if flag_ok_cursor = 'S' then
 
-                        bind_variables_num (curid,SQL_STATEMENT,':IDCHECK',CHECK_ID);
-                        bind_variables_num (curid,SQL_STATEMENT,':CHECK_ID',CHECK_ID);
-                        bind_variables_num (curid,SQL_STATEMENT,':INVOICEID',INVOICE_ID);
-                        bind_variables_num (curid,SQL_STATEMENT,':PAY_DOCUMENT',G_PAY_DOCUMENT);
-                        bind_variables_num (curid,SQL_STATEMENT,':BASE_AMOUNT',G_BASE_AMOUNT);
-                        bind_variables_num (curid,SQL_STATEMENT,':TOP_AMOUNT',G_TOP_AMOUNT);
-                        bind_variables_num (curid,SQL_STATEMENT,':P_DOC_INI',G_DOC_INI);
-                        bind_variables_num (curid,SQL_STATEMENT,':P_DOC_FIN',G_DOC_FIN);
-                        bind_variables_date(curid,SQL_STATEMENT,':P_START_DATE',G_START_DATE);
-                        bind_variables_date(curid,SQL_STATEMENT,':P_END_DATE'  ,G_START_DATE);
-                        bind_variables_num (curid,SQL_STATEMENT,':V_TRX_LINES',V_Trx_Lines);
-                        bind_variables_num (curid,SQL_STATEMENT,':V_SUM_TRANS',V_Sum_Trans);
-                        bind_variables_num (curid,SQL_STATEMENT,':V_SEQUENCE3',V_SEQUENCE3);
+                    bind_variables_num (curid,SQL_STATEMENT,':IDCHECK'      ,CHECK_ID);
+                    bind_variables_num (curid,SQL_STATEMENT,':CHECK_ID'     ,CHECK_ID);
+                    bind_variables_num (curid,SQL_STATEMENT,':INVOICEID'    ,INVOICE_ID);
+                    bind_variables_num (curid,SQL_STATEMENT,':PAY_DOCUMENT' ,G_PAY_DOCUMENT);
+                    bind_variables_num (curid,SQL_STATEMENT,':BASE_AMOUNT'  ,G_BASE_AMOUNT);
+                    bind_variables_num (curid,SQL_STATEMENT,':TOP_AMOUNT'   ,G_TOP_AMOUNT);
+                    bind_variables_num (curid,SQL_STATEMENT,':P_DOC_INI'    ,G_DOC_INI);
+                    bind_variables_num (curid,SQL_STATEMENT,':P_DOC_FIN'    ,G_DOC_FIN);
+                    bind_variables_date(curid,SQL_STATEMENT,':P_START_DATE' ,G_START_DATE);
+                    bind_variables_date(curid,SQL_STATEMENT,':P_END_DATE'   ,G_START_DATE);
+                    bind_variables_num (curid,SQL_STATEMENT,':V_TRX_LINES'  ,V_Trx_Lines);
+                    bind_variables_num (curid,SQL_STATEMENT,':V_SUM_TRANS'  ,V_Sum_Trans);
+                    bind_variables_num (curid,SQL_STATEMENT,':V_SEQUENCE3'  ,V_SEQUENCE3);
                     
                 end if;
                 
@@ -493,10 +493,6 @@ begin
 
         WHEN k_SEQUENCE1 THEN NUMBER_VAL := v_SEQUENCE1;
         WHEN k_SEQUENCE2 THEN NUMBER_VAL := V_SEQUENCE2;
-        WHEN k_SEQUENCE3 THEN NUMBER_VAL := V_SEQUENCE3;
-        WHEN k_TRX_LINES THEN NUMBER_VAL := V_TRX_LINES;
-        WHEN k_SUM_TRANS THEN NUMBER_VAL := V_SUM_TRANS;
-
         ELSE NULL;
         END CASE;
         
