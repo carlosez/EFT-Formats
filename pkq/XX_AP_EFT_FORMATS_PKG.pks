@@ -70,7 +70,9 @@ unbound_variable exception;
     W_File              Constant Number     := 3;
     w_dbms              constant number     := 4;
     W_Wich              Number              := W_Output;
+    w_report            Number              := W_Output;
     W_Init_File         Boolean             := False;
+    
         
     W_File_Name         Varchar2(150)       := 'entrust_ctorres';
     W_File_Ext          Varchar2(10)        := '';
@@ -134,18 +136,19 @@ Procedure MAIN (
             );
 
 Procedure REPORT (
-    Errbuf     Out      Varchar2,
-    Retcode    Out      Varchar2,
-    Bank_Id             Number,
-    Bank_Acc            Number,
-    Pay_Document        Number,
-    Start_Date          Varchar2,
-    End_Date            Varchar2,
-    Checkrun_Id         Number,
-    P_Doc_Ini           Number,
-    P_Doc_Fin           Number,
-    Base_Amount         Number,
-    Top_Amount          Number);
+             Errbuf     Out          Varchar2       --+ 1
+            ,Retcode    Out          Varchar2       --+ 2
+            ,pin_Bank_Acc            Number         --+ 3
+            ,Pin_Pay_Document        Number         --+ 4
+            ,Pin_Doc_Ini             Number         --+ 6
+            ,Pin_Doc_Fin             Number         --+ 7
+            ,Pin_Start_Date          Varchar2       --+ 8
+            ,Pin_End_Date            Varchar2       --+ 9
+            ,Pin_Base_Amount         Number         --+ 10
+            ,Pin_Top_Amount          Number         --+ 11
+            ,Pin_Only_Unsent         Varchar2       --+ 14
+            ,Pin_debug_flag Varchar2 default '1'    --+ 15
+            );
 
 Procedure XX_UPDATE_CHECKS_STATUS (
     Errbuf     Out      Varchar2,
