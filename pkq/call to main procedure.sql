@@ -68,3 +68,5 @@ end;
 --  SELECT SUBSTR(  replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(upper(  nvl(CH.REMIT_TO_SUPPLIER_NAME, ch.VENDOR_NAME)    ), CHR(13), null), CHR(10),null), 'Ú', 'U'), 'Ó', 'O'), 'Í', 'I'), 'É', 'E'), 'Á', 'A'),'À','A'),'È','E'),'Ì','I'),'Ò','O'),'Ù','U'),'Ñ','N'),'#',' '),'@',' '),'^',' '),'*',' '),'%',' '),'&',' '),'\',' '),'|',' '),'!',' '),'~',' '),'?',' '),'}',' '),'{',' '),'[',' '),']',' '),chr(39),' '),'`',' '),'/',' '),'Ü','U'),35,34)   vendor   FROM ap.AP_CHECKS_ALL CH   where ch.CHECK_ID = :IDCHECK
 -- 
 
+
+ APPS.FND_REQUEST .SUBMIT_REQUEST
