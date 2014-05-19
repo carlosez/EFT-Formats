@@ -103,3 +103,6 @@ SELECT CH.CHECK_ID
    AND CH.VOID_DATE IS NULL;
    
    
+
+
+select * from all_directories
