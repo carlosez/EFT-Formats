@@ -1,0 +1,54 @@
+#############################################################################
+#                             TIGO HONDURAS                                 #
+#									    #
+# Desarrollado por:							    #
+#		Ing.Gustavo Lanza		30-Dic-2013		    #
+#               Administrador del ERP para Tigo Honduras.                   #
+#                                                                           #
+# Descripcion:                                                              #
+#           Este shell copia el archivo generado desde el Concurrente       #
+#           con la informacion de la transferencia de Bancos al archivo     #
+#           destino.                                                        #
+#									    #
+#############################################################################
+
+#echo "Parametro"
+#echo $1
+
+##
+echo "******************************************"
+echo "* Construir el nombre del archivo Origen *"
+echo "******************************************"
+##
+archivo=`echo $1 | cut -f9 -d" "`
+lon=`echo $archivo|wc -c`
+lon=$(($lon-2))
+echo "Longitud arc.Orig : ${lon}"
+archivo_origen=`echo ${archivo} |cut -c2-${lon}`
+echo "Archivo Origen: ${archivo_origen}"
+##
+echo "*******************************************"
+echo "* Construir el nombre del archivo Destino *"
+echo "*******************************************"
+##
+archivo=`echo $1 | cut -f10 -d" "`
+lon=`echo $archivo|wc -c`
+lon=$(($lon-2))
+echo "Longitud arc.Destino : ${lon}"
+archivo_destino=`echo ${archivo} |cut -c2-${lon}`
+echo "Archivo Destino ${archivo_destino}"
+##
+## Fin Archivo Destino
+##
+echo "Ruta archivo Origen ->  /dmilii/applcsf/out/DMILII_vmohsmili007/${archivo_origen}"
+echo "Ruta archivo Destino->  /interface/j_mili/DMILII/incoming/HN_CELTEL_OU/HN_BANCOS/BAC/${archivo_destino}.txt"
+cp /dmilii/applcsf/out/DMILII_vmohsmili007/$archivo_origen /interface/j_mili/DMILII/incoming/HN_CELTEL_OU/HN_BANCOS/BAC/${archivo_destino}.txt
+echo "***********************"
+echo "* Listado de Archivos *"
+echo "***********************"
+ls /interface/j_mili/DMILII/incoming/HN_CELTEL_OU/HN_BANCOS/BAC/*
+echo "***********************"
+echo "*        FIN          *"
+echo "***********************"
+
+exit 0
