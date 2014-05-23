@@ -77,6 +77,7 @@ unbound_variable exception;
     W_File_Name         Varchar2(150)       := 'entrust_ctorres';
     W_File_Ext          Varchar2(10)        := '';
     W_File_Dir          Varchar2(50)        := 'XXSV_FILE_ELECTRONIC_DIR';
+    W_File_FTP          Varchar2(150)       := '';
     W_File_Out          Utl_File.File_Type;
     w_count             number              := 0;
     
@@ -131,8 +132,9 @@ Procedure MAIN (
             ,Pin_Top_Amount          Number         --+ 11
             ,pin_process_type        varchar2       --+ 12
             ,Pin_Transfer_Ftp        Varchar2       --+ 13
-            ,Pin_Only_Unsent         Varchar2       --+ 14
-            ,Pin_debug_flag Varchar2 default '1'    --+ 15
+            ,Pin_Directory           Varchar2       --+ 14
+            ,Pin_Only_Unsent         Varchar2       --+ 15
+            ,Pin_debug_flag Varchar2 default '1'    --+ 16
             );
 
 Procedure REPORT (

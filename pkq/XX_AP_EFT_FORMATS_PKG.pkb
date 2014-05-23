@@ -12,10 +12,10 @@ SELECT CH.CHECK_ID
       ,SS.VENDOR_SITE_CODE
   FROM APPS.AP_CHECKS_ALL CH
       ,APPS.AP_SUPPLIER_SITES_ALL SS
+      ,apps.AP_CHECKS_ALL_DFV chdfv
       ,(select fvs.flex_value_set_name 
             ,fv.FLEX_VALUE
             ,fvt.FLEX_VALUE_MEANING
-            , 'TL_'|| rpad(fv.FLEX_VALUE,'25',' ') || ' Varchar2(250)'
         from apps.fnd_flex_value_sets fvs
             ,apps.fnd_flex_values fv
             ,apps.fnd_flex_values_tl fvt
@@ -24,8 +24,7 @@ SELECT CH.CHECK_ID
         and fvt.flex_value_id = fv.flex_value_id
         and LANGUAGE = userenv('lang')
         ) status
- WHERE 1=1
-   AND CH.VENDOR_SITE_ID = SS.VENDOR_SITE_ID
+ WHERE CH.VENDOR_SITE_ID = SS.VENDOR_SITE_ID
    AND CH.PAYMENT_DOCUMENT_ID = g_PAY_DOCUMENT
    AND TRUNC(CH.CHECK_DATE) >= TRUNC(g_START_DATE)
    AND TRUNC(CH.CHECK_DATE) <= TRUNC(g_END_DATE  )
@@ -33,7 +32,8 @@ SELECT CH.CHECK_ID
    AND CH.CHECK_NUMBER <= NVL(g_DOC_FIN,CH.CHECK_NUMBER)
    AND CH.AMOUNT between NVL(g_BASE_AMOUNT ,CH.AMOUNT)
    and NVL(g_TOP_AMOUNT  ,CH.AMOUNT)
-   and status.FLEX_VALUE = nvl(CH.ATTRIBUTE14,'NEW')
+   and status.FLEX_VALUE = nvl(CHDFV.eft_status,'NEW')
+   and ch.rowid = chdfv.rowid
    --AND NVL(CH.ATTRIBUTE14,k_NEW) in ( k_new, g_STATUS_CHECK )
    AND CH.VOID_DATE IS NULL;
 
@@ -60,24 +60,46 @@ SELECT  MS.FORMAT_TYPE                      --+ 1
    AND DT.PART_OF_FILE = P_PART
  ORDER BY DT.SECUENCE ASC;
 
+
+ function bool_to_char(p_bool in boolean)  return varchar2
+is
+  l_chr  varchar2(1) := null;
+begin
+    l_chr := (CASE p_bool when true then 'Y' ELSE 'N' END);
+    return(l_chr);
+end;
+
+
 procedure open_file  is
 begin
-
+    
+    putline(w_log,'Call of function Opening File ');
+    putline(w_log,'w_file_dir       '||w_file_dir);
+    putline(w_log,'w_file_name      '||w_file_name);
+    putline(w_log,'w_file_ext       '||w_file_ext);
+    putline(w_log,'w_init_file      '||bool_to_char(w_init_file));
     IF NOT w_init_file THEN
         w_file_name := w_file_name || TO_CHAR(SYSDATE,'_YYYY-MM-DD_HH24-MI-SS');
         w_file_out := UTL_FILE.FOPEN (w_file_dir, w_file_name || w_file_ext, 'w',32767);
-        DBMS_OUTPUT.PUT_LINE('# Opening File #');
         w_init_file := true;
+        DBMS_OUTPUT.PUT_LINE('# Opening File #');
+        putline(w_log,'w_init_file change to  '||bool_to_char(w_init_file));
+        
     END IF;
     
 EXCEPTION
    WHEN OTHERS THEN
              UTL_FILE.FCLOSE(w_file_out);
             DBMS_OUTPUT.PUT_LINE(' # Error Opening File '|| SQLERRM );
+            putline(w_log,' # Error Opening File '|| SQLERRM );
 end;
 
 procedure close_file is
     begin
+    
+    putline(w_log,'Call of function Close File');
+    putline(w_log,'w_init_file      '||bool_to_char(w_init_file));
+    
     UTL_FILE.FCLOSE(w_file_out);
     w_init_file := false;
     DBMS_OUTPUT.PUT_LINE('# Closing File #');
@@ -87,18 +109,23 @@ procedure close_file is
             fnd_file.put_line(fnd_file.log,'close_file Error Message Is: '||SQLERRM);
 end;
 
-procedure PUTLINE(WHICH in number, BUFF in varchar2) is
+--procedure PUT(WHICH in number, BUFF in varchar2) is
+
+procedure PUT(WHICH in number, BUFF in varchar2) is
 begin
     if      WHICH = FND_FILE.LOG then
-                fnd_file.put_line(WHICH, BUFF);
+                fnd_file.put(WHICH, BUFF);
     elsif   WHICH = FND_FILE.OUTPUT then
-                fnd_file.put_line(WHICH, BUFF);
+                fnd_file.put(WHICH, BUFF);
     elsif   WHICH = w_dbms then
-                    DBMS_OUTPUT.PUT_LINE(BUFF);
+                DBMS_OUTPUT.PUT_LINE(BUFF);
     elsif   WHICH = w_file then
         if(w_init_file) then
             utl_file.put( w_file_out  , convert(BUFF  ,  'WE8ISO8859P1', 'UTF8')   );
             utl_file.fflush(w_file_out);
+            putline(w_log,'File is Close : '||BUFF );
+        else
+            putline(w_log,'File is Close : '||BUFF );
         end if;
     end if;
    exception
@@ -110,14 +137,34 @@ begin
             fnd_file.put_line(fnd_file.log,'PUTLINE Error Message Is: '||SQLERRM);
 end;
 
- 
- function bool_to_char(p_bool in boolean)  return varchar2
-is
-  l_chr  varchar2(1) := null;
+
+procedure PUTLINE(WHICH in number, BUFF in varchar2) is
 begin
-    l_chr := (CASE p_bool when true then 'Y' ELSE 'N' END);
-    return(l_chr);
+    if      WHICH = FND_FILE.LOG then
+                fnd_file.put_line(WHICH, BUFF);
+    elsif   WHICH = FND_FILE.OUTPUT then
+                fnd_file.put_line(WHICH, BUFF);
+    elsif   WHICH = w_dbms then
+                DBMS_OUTPUT.PUT_LINE(BUFF);
+    elsif   WHICH = w_file then
+        if(w_init_file) then
+            utl_file.put( w_file_out  , convert(BUFF  ,  'WE8ISO8859P1', 'UTF8')   );
+            utl_file.fflush(w_file_out);
+            putline(w_log,'File is Close : '||BUFF );
+        else
+            putline(w_log,'File is Close : '||BUFF );
+        end if;
+    end if;
+   exception
+      WHEN OTHERS THEN
+            DBMS_OUTPUT.PUT_LINE('error abriendo archivo ' ||SQLERRM  );
+             if F_Transfer_Ftp then
+             close_file;
+             end if;
+            fnd_file.put_line(fnd_file.log,'PUTLINE Error Message Is: '||SQLERRM);
 end;
+ 
+
 
 /*****************************************************************
                    Levantar Report Sub Request  
@@ -657,8 +704,7 @@ BEGIN
      trx_line :=  substr(trx_line,1,length(trx_line)-1);
     END IF;
     
-    --PUTLINE(w_wich,trx_line );  
-    fnd_file.put(w_wich, trx_line);
+    put(w_wich, trx_line);
     
     IF f_TRX_DETAIL THEN
 
@@ -698,7 +744,7 @@ BEGIN
             END IF;
 
             --PUTLINE(w_wich,DETAIL_LINE);
-            fnd_file.put(w_wich, DETAIL_LINE);
+            put(w_wich, DETAIL_LINE);
             
             v_SEQUENCE2 := v_SEQUENCE2 + 1;
             v_SEQUENCE3 := v_SEQUENCE3 + 1;
@@ -734,8 +780,9 @@ Procedure Initialize (
           ,P_Base_Amount        Number      --+ 9
           ,P_Top_Amount         Number      --+ 10
           ,P_Transfer_Ftp       Varchar2    --+ 11
-          ,P_Only_Unsent        Varchar2    --+ 12
-          ,P_Debug_Flag         Varchar2    --+ 13
+          ,P_Directory          Varchar2    --+ 12
+          ,P_Only_Unsent        Varchar2    --+ 13
+          ,P_Debug_Flag         Varchar2    --+ 14
                       ) Is
 
     CURSOR FORMAT  IS
@@ -794,6 +841,9 @@ begin
     end;
    
     if p_TRANSFER_FTP = 'Y' then 
+
+        W_File_FTP := P_Directory;
+        
         PUTLINE(w_LOG,' File will be transfer to FTP ');
         begin
            select DIRECTORY_NAME into w_file_dir
@@ -915,6 +965,7 @@ begin
     putline(w_log,' W_File_Name              => ' ||W_File_Name );
     putline(w_log,' W_File_Ext               => ' ||W_File_Ext );
     putline(w_log,' W_File_Dir               => ' ||W_File_Dir );
+    putline(w_log,' W_File_FTP               => ' ||W_File_FTP );
     putline(w_log,' E_Start_Flag             => ' ||bool_to_char(E_Start_Flag ) );
     putline(w_log,' E_Proper_exe             => ' ||bool_to_char(E_Proper_exe) );
     putline(w_log,' E_Error_Desc             => ' ||E_Error_Desc );
@@ -939,8 +990,9 @@ procedure main (
             ,Pin_Top_Amount          Number         --+ 11
             ,pin_process_type        varchar2       --+ 12
             ,Pin_Transfer_Ftp        Varchar2       --+ 13
-            ,Pin_Only_Unsent         Varchar2       --+ 14
-            ,Pin_debug_flag Varchar2 default '1'    --+ 15
+            ,Pin_Directory           Varchar2       --+ 14
+            ,Pin_Only_Unsent         Varchar2       --+ 15
+            ,Pin_debug_flag Varchar2 default '1'    --+ 16
             ) IS
     
     Field                   Varchar2(4000);
@@ -963,6 +1015,7 @@ procedure main (
         fnd_file.put_line(fnd_file.log,',Pin_Top_Amount     =>''' || to_char(Pin_Top_Amount ) ||'''' );
         fnd_file.put_line(fnd_file.log,',pin_process_type   =>''' || to_char(pin_process_type ) ||'''' );
         fnd_file.put_line(fnd_file.log,',Pin_Transfer_Ftp   =>''' || to_char(Pin_Transfer_Ftp ) ||'''' );
+        fnd_file.put_line(fnd_file.log,',Pin_Directory      =>''' || to_char(Pin_Directory ) ||'''' );
         fnd_file.put_line(fnd_file.log,',Pin_Only_Unsent    =>''' || to_char(Pin_Only_Unsent ) ||'''' );
         fnd_file.put_line(fnd_file.log,',Pin_debug_flag     =>''' || to_char(Pin_debug_flag ) ||'''' );
         fnd_file.put_line(fnd_file.log,'---------------------------------------------------');
@@ -983,6 +1036,7 @@ procedure main (
                   ,P_Base_Amount        => Pin_Base_Amount
                   ,P_Top_Amount         => Pin_Top_Amount
                   ,P_TRANSFER_FTP       => Pin_Transfer_Ftp
+                  ,p_directory          => Pin_Directory
                   ,P_Only_Unsent        => Pin_Only_Unsent
                   ,p_debug_flag         => Pin_debug_flag
                    );
@@ -1025,7 +1079,7 @@ procedure main (
                 END IF;
 
                 --PUTLINE(w_wich, SUBSTR( LINE, 1, 1024 )   );
-                fnd_file.put(w_wich, LINE);
+                put(w_wich, LINE);
 
             END IF;
           
@@ -1068,7 +1122,7 @@ procedure main (
                 END IF;
 
                 --PUTLINE(w_wich,LINE);
-                fnd_file.put(w_wich, LINE);
+                put(w_wich, LINE);
 
             END IF;
                
@@ -1084,17 +1138,19 @@ procedure main (
             end if;
            null;
             
-           if Pin_debug_flag = '1' then
-                putline(w_log,'Sub request Will Be Raised at this point');
-                --REPORT_DETAILS (w_report);
-                report_subrequest; --+ This Raise a Report of The payments Just Send
-           end if; 
+            if W_Init_File then
+                close_file;
+            end if;
+           
+--           if Pin_debug_flag = '1' then
+--                putline(w_log,'Sub request Will Be Raised at this point');
+--                --REPORT_DETAILS (w_report);
+--                report_subrequest; --+ This Raise a Report of The payments Just Send
+--           end if; 
 
         end if;
         
-        if W_Init_File then
-        close_file;
-        end if;
+
         
         putline(w_log,'+---------------------------------------------------------------------------+');
         putline(w_log,'End process log');
@@ -1138,6 +1194,7 @@ procedure REPORT (
                   ,P_Base_Amount        => Pin_Base_Amount
                   ,P_Top_Amount         => Pin_Top_Amount
                   ,P_TRANSFER_FTP       => null
+                  ,p_directory          => null
                   ,P_Only_Unsent        => Pin_Only_Unsent
                   ,p_debug_flag         => Pin_debug_flag
                    );
