@@ -14,7 +14,7 @@
 #-- 15-NOV-2011    MGupta               Modified to Insert file 
 #--                                     name in the table
 #---------------------------------------------------------------#
-CURR_TIMESTAMP=`date "+%d-%h-%Y-%H:%M:%S"`
+CURR_TIMESTAMP=`date "+%d-%h-%Y_%H-%M-%S"`
 #----- Standard Parameters: -----#
 PROGRAM_NAME=$0 #Execution File Name	 #
 SQL_USER=$1 	#Oracle Applications Username/Password #
@@ -27,14 +27,14 @@ P_DESTINATION=$6
 P_FILE=$7
 
 #copy_file xbol/admin/import $XBOL_TOP/admin/import XX_AR_REPCAJ_RES.ldt
-move_file ()
+copy_file ()
 {
     if [ -f $1/$3 ]
     then
         if [ -f $2/$3 ]
         then
-            echo "File $2/$3 exist, back up created"
-            mv $2/$3 $2/$3_bak$(date +%Y%m%d%H%M%S)
+            echo "File $2/$3 exist, back up created  $3_bak${CURR_TIMESTAMP} "
+            mv $2/$3 $2/$3_bak$CURR_TIMESTAMP
         fi
 
         cp $1/$3 $2/
@@ -45,18 +45,18 @@ move_file ()
 
 ##
 echo "------------------------------------------"
-echo " Moving File : "
+echo " Moving File : $1/$3 "
 echo "------------------------------------------"
 ##
 
-move_file $P_SOURCE $P_DESTINATION $P_FILE
+copy_file $P_SOURCE $P_DESTINATION $P_FILE
 ##
-echo "***********************"
-echo "* Listado de Archivos *"
-echo "***********************"
+#echo "***********************"
+echo " Listado de Archivos "
+#echo "***********************"
 ls $P_DESTINATION/*
-echo "***********************"
-echo "*        FIN          *"
-echo "***********************"
+#echo "***********************"
+#echo "*        FIN          *"
+#echo "***********************"
 
 exit 0
