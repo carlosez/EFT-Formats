@@ -38,6 +38,7 @@ copy_file ()
         fi
 
         cp $1/$3 $2/
+        rm $1/$3
     else
         echo "File $1/$3 does not exist"
     fi
