@@ -74,9 +74,10 @@ unbound_variable exception;
     W_Init_File         Boolean             := False;
     
         
-    W_File_Name         Varchar2(150)       := 'entrust_ctorres';
+    W_File_Name         Varchar2(150)       := 'o';
     W_File_Ext          Varchar2(10)        := '';
-    W_File_Dir          Varchar2(50)        := 'XXSV_FILE_ELECTRONIC_DIR';
+    W_File_Dir          Varchar2(50)        := 'XX_BANK_ELECTRONIC_DIR';
+    W_File_default      Varchar2(4000)      := '';
     W_File_FTP          Varchar2(150)       := '';
     W_File_Out          Utl_File.File_Type;
     w_count             number              := 0;

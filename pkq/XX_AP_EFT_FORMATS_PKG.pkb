@@ -79,7 +79,7 @@ begin
     putline(w_log,'w_file_ext       '||w_file_ext);
     putline(w_log,'w_init_file      '||bool_to_char(w_init_file));
     IF NOT w_init_file THEN
-        w_file_name := w_file_name || TO_CHAR(SYSDATE,'_YYYY-MM-DD_HH24-MI-SS');
+  
         w_file_out := UTL_FILE.FOPEN (w_file_dir, w_file_name || w_file_ext, 'w',32767);
         w_init_file := true;
         DBMS_OUTPUT.PUT_LINE('# Opening File #');
@@ -191,14 +191,44 @@ begin
                    ,chr(0)
                   );
 
-     putline(w_log,'+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+' || v_request_id);
-      putline(w_log,'Report_subrequest submitted. ID = ' || v_request_id);
-    putline(w_log,'+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+' || v_request_id);
+    putline(w_log,'--------------------------------------------------');
+    putline(w_log,'Report_subrequest submitted. ID = ' || v_request_id);
+    putline(w_log,'--------------------------------------------------');
     commit ;
 exception
 when others then
     putline(w_log,'Exception ' || sqlerrm);
 end;
+
+
+/*****************************************************************
+                   Move Phisical File
+******************************************************************/
+
+procedure move_file is
+v_request_id NUMBER;
+begin
+       v_request_id :=
+      APPS.FND_REQUEST.
+      SUBMIT_REQUEST ('XBOL',
+                      'XX_EFT_MOVE_FILE',
+                      '',
+                      '',
+                      FALSE,
+                      W_File_default,
+                      W_File_FTP,
+                      W_File_Name || W_File_Ext,
+                      CHR (0));
+    putline(w_log,'--------------------------------------------------');
+    putline(w_log,' Moving File Request = ' || v_request_id);
+    putline(w_log,'--------------------------------------------------');
+
+    commit ;
+exception
+when others then
+    putline(w_log,'Exception ' || sqlerrm);
+end;
+
 
 PROCEDURE GET_TRXAMOUNT_AND_TRXLINES  IS
 BEGIN 
@@ -535,13 +565,6 @@ begin
             exception 
                 when others then 
                 
---                putline(w_log,'============================');
---                putline(w_log,'CHECK_ID->'||to_char(CHECK_ID));
---                
---                putline(w_log,'SQL_STATEMENT   : '||SQL_STATEMENT);
---                putline(w_log,'curid           : '||curid);
---                putline(w_log,'ERROR           : '||sqlerrm);
---                putline(w_log,'ret             : '|| ret);
                 flag_ok_cursor  := 'E';
                 begin
                   IF src_cur%ISOPEN THEN
@@ -921,11 +944,17 @@ begin
     
     begin
         select  b.BANK_PARTY_ID,bu.BANK_ACCOUNT_ID
-          into g_bank_id , g_BANK_ACC
-    from  apps.ce_banks_v b ,apps.ce_bank_acct_uses_all bu ,ce_bank_accounts ba , apps.ce_payment_documents dc
+           , REGEXP_REPLACE ( ou.name  ||'_' || dc.PAYMENT_DOCUMENT_NAME  ||'_' || TO_CHAR(SYSDATE,'YYYY-MON-DD_HHAM-MI-SS') ,'[^A-Za-z0-9_-]', '')
+          into g_bank_id , g_BANK_ACC, W_File_Name
+    from  apps.ce_banks_v b 
+        ,apps.ce_bank_acct_uses_all bu 
+        ,ce_bank_accounts ba 
+        , apps.ce_payment_documents dc
+        ,apps.hr_operating_units ou
      where bu.BANK_ACCOUNT_ID = ba.BANK_ACCOUNT_ID
        and ba.BANK_ID  = b.BANK_PARTY_ID
        and dc.INTERNAL_BANK_ACCOUNT_ID = bu.BANK_ACCOUNT_ID
+       and ou.organization_id = bu.org_id
        and dc.PAYMENT_DOCUMENT_ID = G_Pay_Document
         ;
     exception
@@ -933,29 +962,9 @@ begin
         putline(w_log,'Error Retrieving Parameters ');
         putline(w_log,'SQLERRM: '||sqlerrm );
         end;
---    putline(w_log,' k_Header                 => ' ||k_Header );
---    putline(w_log,' k_Body                   => ' ||k_Body );
---    putline(w_log,' k_Detail                 => ' ||k_Detail );
---    putline(w_log,' k_TRAILER                => ' ||k_TRAILER );
---    putline(w_log,' k_delimited              => ' ||k_delimited );
---    putline(w_log,' k_fixed                  => ' ||k_fixed );
---    putline(w_log,' k_NEW                    => ' ||k_NEW );
---    putline(w_log,' K_PRINTED                => ' ||K_PRINTED );
---    putline(w_log,' F_Trx_Header             => ' ||bool_to_char(F_Trx_Header ) );
---    putline(w_log,' F_Trx_Body               => ' ||bool_to_char(F_Trx_Body ) );
---    putline(w_log,' F_Trx_Detail             => ' ||bool_to_char(F_Trx_Detail ) );
---    putline(w_log,' F_Trx_Footer             => ' ||bool_to_char(F_Trx_Footer ) );
---    putline(w_log,' F_FORMAT_TYPE            => ' ||F_FORMAT_TYPE );
---    putline(w_log,' F_Delimiter              => ' ||F_Delimiter );
---    putline(w_log,' F_Transfer_Ftp           => ' ||bool_to_char(F_Transfer_Ftp ) );
---    --putline(w_log,' f_end_of_line            => ' ||f_end_of_line );
---    putline(w_log,' V_Sequence1              => ' ||V_Sequence1 );
---    putline(w_log,' V_Sequence2              => ' ||V_Sequence2 );
---    putline(w_log,' V_Sequence3              => ' ||V_Sequence3 );
---    putline(w_log,' V_Detail_Lines           => ' ||V_Detail_Lines );
+
     putline(w_log,' V_Trx_Lines              => ' ||V_Trx_Lines );
     putline(w_log,' V_Sum_Trans              => ' ||V_Sum_Trans );
---    putline(w_log,' V_Report_Lines           => ' ||V_Report_Lines );
     putline(w_log,' W_Log                    => ' ||W_Log );
     putline(w_log,' W_Output                 => ' ||W_Output );
     putline(w_log,' W_File                   => ' ||W_File );
@@ -1128,13 +1137,10 @@ procedure main (
                
         END IF;
 
-       
         IF e_START_FLAG  THEN
 
-            
             if f_transfer_ftp then
-                null;
---                UPDATE_PROCESS_CHECKS;
+                move_file; --+ Copy from default Directory to Specified
             end if;
            null;
             
@@ -1142,16 +1148,12 @@ procedure main (
                 close_file;
             end if;
            
---           if Pin_debug_flag = '1' then
---                putline(w_log,'Sub request Will Be Raised at this point');
---                --REPORT_DETAILS (w_report);
---                report_subrequest; --+ This Raise a Report of The payments Just Send
---           end if; 
+           if Pin_debug_flag = '1' then
+                report_subrequest; --+ This Raise a Report of The payments Just Send
+           end if; 
 
         end if;
-        
 
-        
         putline(w_log,'+---------------------------------------------------------------------------+');
         putline(w_log,'End process log');
         commit;
@@ -1233,9 +1235,6 @@ PROCEDURE XX_UPDATE_CHECKS_STATUS (
     USER_GRANTED_ID     NUMBER;    
     
 BEGIN
-
-
-
         
         G_PAY_DOCUMENT := PAY_DOCUMENT;
         G_START_DATE := to_date(P_START_DATE,fnd_date.canonical_DT_mask); 
