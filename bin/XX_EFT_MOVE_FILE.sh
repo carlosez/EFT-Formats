@@ -1,18 +1,15 @@
 #
-# Script: XXINVTRMISC.prog 
+# Script: XX_EFT_MOVE_FILE.prog 
 #--
-#-- Author: Deepka Morey
+#-- Author: Carlos Torres
 #--
-#-- Description: This program will be used to  call SQL*Loader
-#--  utility and also archive the data file.
+#-- Description: This program will be used to Move Payments Files
 #--
 #-- Change History:
 #---------------------------------------------------------------
 #-- Date           Who                Reason        --
 #---------------------------------------------------------------
-#-- 09-NOV-2011    DMorey               Initial Version
-#-- 15-NOV-2011    MGupta               Modified to Insert file 
-#--                                     name in the table
+#-- 27-MAY-2014    CTORRES            Initial Version
 #---------------------------------------------------------------#
 CURR_TIMESTAMP=`date "+%d-%h-%Y_%H-%M-%S"`
 #----- Standard Parameters: -----#
@@ -22,9 +19,9 @@ CREATED_BY=$2 	#Application userid           #
 CREATE_USER=$3 	#Application username         #
 REQUEST_ID=$4	#Conucurrent Request_id	 #
 #----- User Parameters: -----#
-P_SOURCE=$5
-P_DESTINATION=$6
-P_FILE=$7
+P_SOURCE=$5 # Directory where the file is placed #
+P_DESTINATION=$6 # Directory where the file will be moved    #
+P_FILE=$7  # File Name  #
 
 #copy_file xbol/admin/import $XBOL_TOP/admin/import XX_AR_REPCAJ_RES.ldt
 copy_file ()
@@ -36,28 +33,30 @@ copy_file ()
             echo "File $2/$3 exist, back up created  $3_bak${CURR_TIMESTAMP} "
             mv $2/$3 $2/$3_bak$CURR_TIMESTAMP
         fi
-
+        echo "+---------------------------------------------------------------------------+"
         cp $1/$3 $2/
+        echo " Copping File   : $3 "
+        echo " From Directory : $1 "
+		echo " Into Directory : $2 "
+		echo "+---------------------------------------------------------------------------+"
         rm $1/$3
+        echo " Deleting File  : $3 "
+		echo " From Directory : $1 "
+		echo "+---------------------------------------------------------------------------+"
     else
         echo "File $1/$3 does not exist"
+        echo "+---------------------------------------------------------------------------+"
     fi
 }
-
-##
-echo "------------------------------------------"
-echo " Moving File : $1/$3 "
-echo "------------------------------------------"
-##
 
 copy_file $P_SOURCE $P_DESTINATION $P_FILE
 ##
 #echo "***********************"
-echo " Listado de Archivos "
-#echo "***********************"
-ls $P_DESTINATION/*
-#echo "***********************"
-#echo "*        FIN          *"
-#echo "***********************"
+echo "+---------------------------------------------------------------------------+"
+echo " Listing Files "
+echo " In Directory : ${P_DESTINATION}  "
+echo "+---------------------------------------------------------------------------+"
+cd $P_DESTINATION
+ls *
 
 exit 0
