@@ -34,7 +34,7 @@ SELECT CH.CHECK_ID
    and NVL(g_TOP_AMOUNT  ,CH.AMOUNT)
    and status.FLEX_VALUE = nvl(CHDFV.eft_status,'NEW')
    and ch.rowid = chdfv.rowid
-   --AND NVL(CH.ATTRIBUTE14,k_NEW) in ( k_new, g_STATUS_CHECK )
+   AND NVL(CH.ATTRIBUTE14,k_NEW) in ( k_new, g_STATUS_CHECK )
    AND CH.VOID_DATE IS NULL;
 
 
@@ -72,21 +72,21 @@ end;
 
 procedure open_file  is
 begin
-    
-    putline(w_log,'Call of function Opening File ');
-    putline(w_log,'w_file_dir       '||w_file_dir);
-    putline(w_log,'w_file_name      '||w_file_name);
-    putline(w_log,'w_file_ext       '||w_file_ext);
-    putline(w_log,'w_init_file      '||bool_to_char(w_init_file));
+    putline(w_log,'+---------------------------------------------------------------------------+');
+    putline(w_log,' Opening File ');
+    putline(w_log,' w_file_dir       '||w_file_dir);
+    putline(w_log,' w_file_name      '||w_file_name);
+    putline(w_log,' w_file_ext       '||w_file_ext);
+    putline(w_log,' w_init_file      '||bool_to_char(w_init_file));
     IF NOT w_init_file THEN
   
         w_file_out := UTL_FILE.FOPEN (w_file_dir, w_file_name || w_file_ext, 'w',32767);
         w_init_file := true;
         DBMS_OUTPUT.PUT_LINE('# Opening File #');
-        putline(w_log,'w_init_file change to  '||bool_to_char(w_init_file));
+        putline(w_log,' w_init_file change to  '||bool_to_char(w_init_file));
         
     END IF;
-    
+    putline(w_log,'+---------------------------------------------------------------------------+');
 EXCEPTION
    WHEN OTHERS THEN
              UTL_FILE.FCLOSE(w_file_out);
@@ -123,9 +123,8 @@ begin
         if(w_init_file) then
             utl_file.put( w_file_out  , convert(BUFF  ,  'WE8ISO8859P1', 'UTF8')   );
             utl_file.fflush(w_file_out);
-            putline(w_log,'File is Close : '||BUFF );
         else
-            putline(w_log,'File is Close : '||BUFF );
+            fnd_file.put_line( FND_FILE.LOG, 'File is Close : '||BUFF);
         end if;
     end if;
    exception
@@ -150,9 +149,8 @@ begin
         if(w_init_file) then
             utl_file.put( w_file_out  , convert(BUFF  ,  'WE8ISO8859P1', 'UTF8')   );
             utl_file.fflush(w_file_out);
-            putline(w_log,'File is Close : '||BUFF );
         else
-            putline(w_log,'File is Close : '||BUFF );
+             fnd_file.put_line( FND_FILE.LOG, 'File is Close : '||BUFF);
         end if;
     end if;
    exception
@@ -191,9 +189,9 @@ begin
                    ,chr(0)
                   );
 
-    putline(w_log,'--------------------------------------------------');
+    putline(w_log,'+---------------------------------------------------------------------------+');
     putline(w_log,'Report_subrequest submitted. ID = ' || v_request_id);
-    putline(w_log,'--------------------------------------------------');
+    putline(w_log,'+---------------------------------------------------------------------------+');
     commit ;
 exception
 when others then
@@ -219,9 +217,9 @@ begin
                       W_File_FTP,
                       W_File_Name || W_File_Ext,
                       CHR (0));
-    putline(w_log,'--------------------------------------------------');
+    putline(w_log,'+---------------------------------------------------------------------------+');
     putline(w_log,' Moving File Request = ' || v_request_id);
-    putline(w_log,'--------------------------------------------------');
+    putline(w_log,'+---------------------------------------------------------------------------+');
 
     commit ;
 exception
@@ -840,12 +838,35 @@ begin
         g_Debug_Flag := true;
         W_Log := w_dbms;
         w_WICH := W_File;
-        putline(W_Log,'Debug Is Set To 1 ' );
+        putline(W_Log,' Debug Is Set To 1 ' );
     else
-        putline(W_Log,'Debug Is Set To ' || P_Debug_Flag );
+        putline(W_Log,' Debug Is Set To ' || P_Debug_Flag );
         w_WICH := W_File;
     end if;
 
+    begin
+        select  b.BANK_PARTY_ID,bu.BANK_ACCOUNT_ID
+           , REGEXP_REPLACE     ( ou.name  
+                        ||'_' || dc.PAYMENT_DOCUMENT_NAME  
+                        ||'_' || TO_CHAR(SYSDATE,'YYYY-MON-DD_HHAM-MI-SS') 
+                                ,'[^A-Za-z0-9_-]', '')
+          into g_bank_id , g_BANK_ACC, W_File_Name
+    from  apps.ce_banks_v b 
+        ,apps.ce_bank_acct_uses_all bu 
+        ,ce_bank_accounts ba 
+        , apps.ce_payment_documents dc
+        ,apps.hr_operating_units ou
+     where bu.BANK_ACCOUNT_ID = ba.BANK_ACCOUNT_ID
+       and ba.BANK_ID  = b.BANK_PARTY_ID
+       and dc.INTERNAL_BANK_ACCOUNT_ID = bu.BANK_ACCOUNT_ID
+       and ou.organization_id = bu.org_id
+       and dc.PAYMENT_DOCUMENT_ID = G_Pay_Document
+        ;
+    exception
+    when others then
+        putline(w_log,'Error Retrieving Parameters ');
+        putline(w_log,'SQLERRM: '||sqlerrm );
+    end;
         
     if      P_Only_Unsent = 'Y' then    G_STATUS_CHECK  := k_NEW;
     elsif   P_Only_Unsent = 'N' then    G_STATUS_CHECK  := K_PRINTED;
@@ -869,7 +890,7 @@ begin
         
         PUTLINE(w_LOG,' File will be transfer to FTP ');
         begin
-           select DIRECTORY_NAME into w_file_dir
+           select DIRECTORY_PATH into W_File_default
             from all_directories 
             where DIRECTORY_NAME = w_file_dir
             ;
@@ -880,7 +901,7 @@ begin
             PUTLINE(w_LOG,' UnExpected Error all_directories '||SQLerrm);
         end;
         
-        if w_file_dir is not null  then
+        if W_File_default is not null  then
             f_transfer_ftp := true;
             open_file;
             W_Wich := w_file;
@@ -901,8 +922,6 @@ begin
         end if;
 
     end if;
-    putline(W_Log,'CODE LOG '|| to_char(W_Log) );
-    putline(W_Log,'CODE OUT '|| to_char(w_WICH) );     
  
     FOR R IN FORMAT LOOP
                     
@@ -941,46 +960,10 @@ begin
         e_ERROR_CODE := '1';
     END IF;
     
-    
-    begin
-        select  b.BANK_PARTY_ID,bu.BANK_ACCOUNT_ID
-           , REGEXP_REPLACE ( ou.name  ||'_' || dc.PAYMENT_DOCUMENT_NAME  ||'_' || TO_CHAR(SYSDATE,'YYYY-MON-DD_HHAM-MI-SS') ,'[^A-Za-z0-9_-]', '')
-          into g_bank_id , g_BANK_ACC, W_File_Name
-    from  apps.ce_banks_v b 
-        ,apps.ce_bank_acct_uses_all bu 
-        ,ce_bank_accounts ba 
-        , apps.ce_payment_documents dc
-        ,apps.hr_operating_units ou
-     where bu.BANK_ACCOUNT_ID = ba.BANK_ACCOUNT_ID
-       and ba.BANK_ID  = b.BANK_PARTY_ID
-       and dc.INTERNAL_BANK_ACCOUNT_ID = bu.BANK_ACCOUNT_ID
-       and ou.organization_id = bu.org_id
-       and dc.PAYMENT_DOCUMENT_ID = G_Pay_Document
-        ;
-    exception
-    when others then
-        putline(w_log,'Error Retrieving Parameters ');
-        putline(w_log,'SQLERRM: '||sqlerrm );
-        end;
 
-    putline(w_log,' V_Trx_Lines              => ' ||V_Trx_Lines );
-    putline(w_log,' V_Sum_Trans              => ' ||V_Sum_Trans );
-    putline(w_log,' W_Log                    => ' ||W_Log );
-    putline(w_log,' W_Output                 => ' ||W_Output );
-    putline(w_log,' W_File                   => ' ||W_File );
-    putline(w_log,' w_dbms                   => ' ||w_dbms );
-    putline(w_log,' W_Wich                   => ' ||W_Wich );
     putline(w_log,' W_Init_File              => ' ||bool_to_char(W_Init_File ) );
-    putline(w_log,' W_File_Name              => ' ||W_File_Name );
-    putline(w_log,' W_File_Ext               => ' ||W_File_Ext );
-    putline(w_log,' W_File_Dir               => ' ||W_File_Dir );
-    putline(w_log,' W_File_FTP               => ' ||W_File_FTP );
     putline(w_log,' E_Start_Flag             => ' ||bool_to_char(E_Start_Flag ) );
     putline(w_log,' E_Proper_exe             => ' ||bool_to_char(E_Proper_exe) );
-    putline(w_log,' E_Error_Desc             => ' ||E_Error_Desc );
-    putline(w_log,' E_Error_Code             => ' ||E_Error_Code );
-
-
     
 end;
 
@@ -1010,7 +993,8 @@ procedure main (
     BEGIN
 
 
-        fnd_file.put_line(fnd_file.log,'---------------------------------------------------');
+        fnd_file.put_line(fnd_file.log,'+---------------------------------------------------------------------------+');
+        fnd_file.put_line(fnd_file.log,' Calling Main Procedure' );
         fnd_file.put_line(fnd_file.log,',Errbuf             =>''' || to_char(Errbuf ) ||'''' );
         fnd_file.put_line(fnd_file.log,',Retcode            =>''' || to_char(Retcode ) ||'''' );
         fnd_file.put_line(fnd_file.log,',pin_Bank_Acc       =>''' || to_char(pin_Bank_Acc ) ||'''' );
@@ -1027,7 +1011,7 @@ procedure main (
         fnd_file.put_line(fnd_file.log,',Pin_Directory      =>''' || to_char(Pin_Directory ) ||'''' );
         fnd_file.put_line(fnd_file.log,',Pin_Only_Unsent    =>''' || to_char(Pin_Only_Unsent ) ||'''' );
         fnd_file.put_line(fnd_file.log,',Pin_debug_flag     =>''' || to_char(Pin_debug_flag ) ||'''' );
-        fnd_file.put_line(fnd_file.log,'---------------------------------------------------');
+        fnd_file.put_line(fnd_file.log,'+---------------------------------------------------------------------------+');
 
         --+ set Global Varibles for formating and Output
         --+ Checks if minimun requirements are place, also the correct configuration
