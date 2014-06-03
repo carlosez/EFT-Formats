@@ -11,26 +11,26 @@ procedure migrate_format(Errbuf     Out             Varchar2       --+ 1
 
     cursor c_format_definition (pin_id_master number) return XX_AP_EFT_FORMAT_DEFINITIONS%rowtype is 
         select 
-         dt.ID_FILE_FORMAT  DEFINITION_ID
-        ,dt.ID_MASTER       FORMAT_ID
-        ,dt.FIELD_NAME          FIELD_NAME
-        ,dt.TYPE_VALUE          TYPE_VALUE
-        , replace(replace(dt.CONSTANT_VALUE,'\E',' '),'\N','')  CONSTANT_VALUE
-        ,dt.SECUENCE    SECUENCE
-        ,dt.START_POSITION  START_POSITION
-        ,dt.END_POSITION  END_POSITION
-        ,dt.DATA_TYPE  DATA_TYPE
-        ,dt.FORMAT  FORMAT_MODEL
-        ,ascii(replace(dt.PADDING_CHARACTER,'E',' ')) PADDING_CHARACTER
-        ,decode(nvl(dt.NEEDS_PADDING,'N'),'Y', dt.DIRECTION_PADDING, 'N','NONE')  DIRECTION_PADDING
-        ,dt.SQL_STATEMENT  SQL_STATEMENT
-        ,decode(dt.PART_OF_FILE, 'TRX','BODY','FOOTER','TRAILER',dt.PART_OF_FILE)  PART_OF_FILE
-        ,dt.CREATED_BY  CREATED_BY
-        ,dt.CREATION_DATE  CREATION_DATE
-        ,dt.LAST_UPDATED_BY  LAST_UPDATED_BY
-        ,dt.LAST_UPDATE_DATE  LAST_UPDATE_DATE
-         from XX_SV_AP_EPAYMENT_DETAIL Dt
-         where dt.id_master = pin_id_master
+         dt.ID_FILE_FORMAT  DEFINITION_ID       --+ 1
+        ,dt.ID_MASTER       FORMAT_ID           --+ 2
+        ,dt.FIELD_NAME          FIELD_NAME      --+ 3
+        ,dt.TYPE_VALUE          TYPE_VALUE      --+ 4
+        , replace(replace(dt.CONSTANT_VALUE,'\E',' '),'\N','')  CONSTANT_VALUE  --+ 5
+        ,dt.SECUENCE    SECUENCE                --+ 6
+        ,dt.START_POSITION  START_POSITION      --+ 7
+        ,dt.END_POSITION  END_POSITION          --+ 8
+        ,dt.DATA_TYPE  DATA_TYPE                --+ 9
+        ,dt.FORMAT  FORMAT_MODEL                --+ 10
+        ,ascii(replace(dt.PADDING_CHARACTER,'E',' ')) PADDING_CHARACTER--+11
+        ,decode(nvl(dt.NEEDS_PADDING,'N'),'Y', dt.DIRECTION_PADDING, 'N','NONE')  DIRECTION_PADDING--+ 12
+        ,dt.SQL_STATEMENT  SQL_STATEMENT        --+ 13
+        ,decode(dt.PART_OF_FILE, 'TRX','BODY','FOOTER','TRAILER',dt.PART_OF_FILE)  PART_OF_FILE --15
+        ,dt.CREATED_BY  CREATED_BY              --+ 16
+        ,dt.CREATION_DATE  CREATION_DATE        --+ 17
+        ,dt.LAST_UPDATED_BY  LAST_UPDATED_BY    --+ 18
+        ,dt.LAST_UPDATE_DATE  LAST_UPDATE_DATE  --+ 19
+         from XX_SV_AP_EPAYMENT_DETAIL Dt       
+         where dt.id_master = pin_id_master     
          ;
      
     v_master_id number;
@@ -49,7 +49,6 @@ procedure migrate_format(Errbuf     Out             Varchar2       --+ 1
                 ,decode( MS.TYPE_TEXT_FILE, 'DELIMITED', 'DELIMITED', 'POSITIONS' , 'FIXED_WIDTH')  FORMAT_TYPE --+ 3
                 , ascii(decode(MS.DELIMITER,'T',chr(9),MS.DELIMITER)) ACII_DELIMITER        --+ 4
                 , null FILE_EXTENSION           --+ 5
-                , 'LF' END_OF_LINE              --+ 
                 , enable ENABLE_FLAG            --+ 6
                 , ms.CREATED_BY                 --+ 7
                 ,ms.CREATION_DATE               --+ 8

@@ -8,11 +8,11 @@ SELECT CH.CHECK_ID
       ,CH.AMOUNT
       ,CH.CHECK_DATE
       ,CH.VENDOR_NAME
-      ,status.FLEX_VALUE_MEANING SEND_STATUS
+      ,status.FLEX_VALUE_MEANING/* g_process_type ||'|' ||CH.ATTRIBUTE14  ||'|'  ||status.FLEX_VALUE_MEANING */SEND_STATUS
       ,SS.VENDOR_SITE_CODE
   FROM APPS.AP_CHECKS_ALL CH
       ,APPS.AP_SUPPLIER_SITES_ALL SS
-      ,(select fvs.flex_value_set_name 
+      ,(select fvs.flex_value_set_name
             ,fv.FLEX_VALUE
             ,fvt.FLEX_VALUE_MEANING
         from apps.fnd_flex_value_sets fvs
@@ -31,8 +31,8 @@ SELECT CH.CHECK_ID
    AND CH.CHECK_NUMBER <= NVL(g_DOC_FIN,CH.CHECK_NUMBER)
    AND CH.AMOUNT between NVL(g_BASE_AMOUNT ,CH.AMOUNT)
    and NVL(g_TOP_AMOUNT  ,CH.AMOUNT)
-   and NVL(CH.ATTRIBUTE14,k_NEW) = status.FLEX_VALUE 
-   AND NVL(CH.ATTRIBUTE14,k_NEW) in ( k_new, g_STATUS_CHECK )
+   and decode(g_process_type,'FINAL', K_PRINTED, NVL(CH.ATTRIBUTE14,k_NEW)) = status.FLEX_VALUE          --+ Presentation
+   AND NVL(CH.ATTRIBUTE14,k_NEW) in ( k_new, g_STATUS_CHECK ) --+ Fillter
    AND CH.VOID_DATE IS NULL
    order by ch.check_number;
 
@@ -87,7 +87,7 @@ begin
         w_init_file := true;
         DBMS_OUTPUT.PUT_LINE('# Opening File #');
         putline(w_log,' w_init_file change to  '||bool_to_char(w_init_file));
-        
+
     END IF;
     putline(w_log,'+---------------------------------------------------------------------------+');
 EXCEPTION
@@ -99,10 +99,10 @@ end;
 
 procedure close_file is
     begin
-    
+
     putline(w_log,'Call of function Close File');
     putline(w_log,'w_init_file      '||bool_to_char(w_init_file));
-    
+
     UTL_FILE.FCLOSE(w_file_out);
     w_init_file := false;
     DBMS_OUTPUT.PUT_LINE('# Closing File #');
@@ -164,16 +164,18 @@ begin
              end if;
             fnd_file.put_line(fnd_file.log,'PUTLINE Error Message Is: '||SQLERRM);
 end;
- 
+
 
 
 /*****************************************************************
-                   Levantar Report Sub Request  
+                   Levantar Report Sub Request
 ******************************************************************/
 
 procedure report_subrequest is
 
 begin
+
+
     g_report_sub_request  := APPS.FND_REQUEST .SUBMIT_REQUEST
                    ('XBOL'
                    ,'XX_AP_PAY_REG'
@@ -189,12 +191,13 @@ begin
                    ,g_BASE_AMOUNT
                    ,g_Top_Amount
                    ,G_Unsent_Only
+                   ,G_process_type
                    ,chr(0)
                   );
-                  
-                  
-                  --+ 65269, 2552, , , 2013/12/20 00:00:00, 2013/12/30 00:00:00, 0, 99999999.99, Y
 
+        
+                  --+ 65269, 2552, , , 2013/12/20 00:00:00, 2013/12/30 00:00:00, 0, 99999999.99, Y
+    
     putline(w_log,'+---------------------------------------------------------------------------+');
     putline(w_log,'+_subrequest submitted. ID = ' || g_report_sub_request);
     putline(w_log,'+---------------------------------------------------------------------------+');
@@ -235,22 +238,22 @@ end;
 
 
 PROCEDURE GET_TRXAMOUNT_AND_TRXLINES  IS
-BEGIN 
+BEGIN
     v_TRX_LINES := 0;
     v_SUM_TRANS := 0;
     for x in c_checks loop
         v_TRX_LINES := v_TRX_LINES + 1;
         v_SUM_TRANS := v_SUM_TRANS + x.AMOUNT;
-    end loop;                  
-END;                                   
+    end loop;
+END;
 
 
 procedure update_status is
     CURSOR C_Checks_U IS
-SELECT ch.ROWID, CH.* 
+SELECT ch.ROWID, CH.*
   FROM APPS.AP_CHECKS_ALL CH
       ,APPS.AP_SUPPLIER_SITES_ALL SS
-      ,(select fvs.flex_value_set_name 
+      ,(select fvs.flex_value_set_name
             ,fv.FLEX_VALUE
             ,fvt.FLEX_VALUE_MEANING
         from apps.fnd_flex_value_sets fvs
@@ -273,17 +276,17 @@ SELECT ch.ROWID, CH.*
    AND NVL(CH.ATTRIBUTE14,k_NEW) in ( k_new, g_STATUS_CHECK )
    AND CH.VOID_DATE IS NULL;
 
-    ROWS_UPDATED        NUMBER;   
+    ROWS_UPDATED        NUMBER;
     aux_rows            number;
-    
-    
+
+
 begin
 
     begin
          putline(w_log,'+---------------------------------------------------------------------------+');
          putline(w_log,' Updating Payment Status');
         for REC_I in c_checks_u loop
-          
+
             AP_AC_TABLE_HANDLER_PKG.UPDATE_ROW (
              p_Rowid                              =>     REC_I.Rowid
             ,p_Amount                             =>     REC_I.Amount
@@ -376,7 +379,7 @@ begin
             ,p_global_attribute11                 =>     REC_I.global_attribute11
             ,p_global_attribute12                 =>     REC_I.global_attribute12
             ,p_global_attribute13                 =>     REC_I.global_attribute13
-            ,p_global_attribute14                 =>     REC_I.global_attribute14 
+            ,p_global_attribute14                 =>     REC_I.global_attribute14
             ,p_global_attribute15                 =>     REC_I.global_attribute15
             ,p_global_attribute16                 =>     REC_I.global_attribute16
             ,p_global_attribute17                 =>     REC_I.global_attribute17
@@ -408,20 +411,20 @@ begin
             );
 
             PutLine(w_log,' Updating Check  : ' || to_char( REC_I.Check_Id) || ' Set Status      : ' || G_Set_status );
-            
+
         end loop;
             commit;
             putline(w_log,'+---------------------------------------------------------------------------+');
     exception
         when others then
-           
+
             PutLine(w_log,'Error Updating Payments ' || sqlerrm  );
         rollback;
     end;
 end;
- 
+
 procedure  REPORT_DETAILS ( p_wich number)  IS
-          
+
 V_LEGAL_ENTITY    VARCHAR2(400);
 V_BANK_NAME       VARCHAR2(400);
 V_BRANCH_NAME     VARCHAR2(400);
@@ -448,7 +451,7 @@ LINE              VARCHAR2(500);
 
 
     cursor c_titles is
-    select fvs.flex_value_set_name 
+    select fvs.flex_value_set_name
         ,fv.FLEX_VALUE
         ,fvt.FLEX_VALUE_MEANING
     from apps.fnd_flex_value_sets fvs
@@ -463,14 +466,14 @@ LINE              VARCHAR2(500);
 begin
 
     GET_TRXAMOUNT_AND_TRXLINES;
-    
+
     PUTLINE(W_LOG,'+---------------------------------------------------------------------------+');
     PUTLINE(W_LOG,'Begin Log_Report_Details Values ');
     PUTLINE(W_LOG,'+---------------------------------------------------------------------------+');
-    
+
     BEGIN
-        for x in c_titles loop 
-            case x.FLEX_VALUE 
+        for x in c_titles loop
+            case x.FLEX_VALUE
             when 'REPORT_NAME'      then TL_REPORT_NAME         :=   x.FLEX_VALUE_MEANING;
             when 'BANK'             then TL_BANK                :=   x.FLEX_VALUE_MEANING;
             when 'BANK_ACCOUNT'     then TL_BANK_ACCOUNT        :=   x.FLEX_VALUE_MEANING;
@@ -483,7 +486,7 @@ begin
             when 'CHECK_AMOUNT'     then TL_CHECK_AMOUNT        :=   x.FLEX_VALUE_MEANING;
             when 'SEND_STATUS'      then TL_SEND_STATUS         :=   x.FLEX_VALUE_MEANING;
             when 'LEGAL_ENTITY'     then TL_LEGAL_ENTITY        :=   x.FLEX_VALUE_MEANING;
-            else null; 
+            else null;
             end case;
         end loop;
 
@@ -491,9 +494,9 @@ begin
         begin
         select  b.BANK_NAME  , ba.BANK_ACCOUNT_NAME, dc.PAYMENT_DOCUMENT_NAME, initcap( LEOU.LEGAL_ENTITY_NAME) LEGAL_ENTITY
               into V_BANK_NAME , V_BANK_ACC_NAME, V_PAYMENT_DOC, V_LEGAL_ENTITY
-        from  apps.ce_banks_v b 
-             ,apps.ce_bank_acct_uses_all bu 
-             ,ce_bank_accounts ba 
+        from  apps.ce_banks_v b
+             ,apps.ce_bank_acct_uses_all bu
+             ,ce_bank_accounts ba
              ,apps.ce_payment_documents dc
              ,apps.XLE_LE_OU_LEDGER_V leou
          where bu.BANK_ACCOUNT_ID = ba.BANK_ACCOUNT_ID
@@ -507,17 +510,17 @@ begin
                 putline(w_log,'Error Retrieving Parameters ');
                 putline(w_log,'SQLERRM: '||sqlerrm );
         end;
-        
+
     EXCEPTION
-    when others then 
+    when others then
         PUTLINE(W_LOG,'Unexpected Error');
         PUTLINE(W_LOG,'SQLERRM : '||SQLERRM);
     END;
-    
+
     PUTLINE(W_LOG,'+---------------------------------------------------------------------------+');
     PUTLINE(W_LOG,'End Log_Report_Details Values ');
     PUTLINE(W_LOG,'+---------------------------------------------------------------------------+');
-    
+
     PUTLINE(p_wich,'');
     PUTLINE(p_wich,TL_REPORT_NAME);
     PUTLINE(p_wich,RPAD(TL_LEGAL_ENTITY,18,' ') ||': '||V_LEGAL_ENTITY );
@@ -525,9 +528,9 @@ begin
     PUTLINE(p_wich,RPAD(TL_BANK_ACCOUNT,18,' ') ||': '||V_BANK_ACC_NAME  );
     PUTLINE(p_wich,RPAD(TL_PAYMENT_DOCUMENT,18,' ') ||': '||V_PAYMENT_DOC);
     PUTLINE(p_wich,RPAD(TL_DATE_TIME,18,' ') ||': '||fnd_date.date_to_displayDT(sysdate) );
-    
+
      PUTLINE(p_wich,'');
-    
+
     LINE:='';
     LINE := LINE ||'  ' || LPAD(TL_CHECK_NUMBER ,15, ' ');
     LINE := LINE ||'  ' || RPAD(TL_CHECK_DATE   ,14, ' ');
@@ -535,7 +538,7 @@ begin
     LINE := LINE ||'  ' || RPAD(TL_SUPPLIER_SITE,15, ' ');
     LINE := LINE ||'  ' || LPAD(TL_CHECK_AMOUNT ,15, ' ');
     LINE := LINE ||'  ' || RPAD(TL_SEND_STATUS  ,15, ' ');
-    
+
     PUTLINE(p_wich,LINE);
 
         FOR C IN c_checks  LOOP
@@ -545,15 +548,15 @@ begin
             LINE := LINE ||'  ' || RPAD(NVL(C.VENDOR_NAME,' ')                     ,50,' ');
             LINE := LINE ||'  ' || RPAD(NVL(C.VENDOR_SITE_CODE,' ')                ,15,' ');
             LINE := LINE ||'  ' || LPAD(TO_CHAR(C.AMOUNT,'999,999,999.99')         ,15,' ');
-            LINE := LINE ||'  ' || RPAD(NVL(C.SEND_STATUS,' ')                    ,15,' ');
+            LINE := LINE ||'  ' || RPAD(NVL(C.SEND_STATUS,' ')                    ,15,' '); --+ 15
             PUTLINE(p_wich,LINE);
         END LOOP;
-       
+
     PUTLINE(p_wich,lpad('-',135,'-'));
-    PUTLINE(p_wich,'  COUNT '||LPAD( TO_CHAR(v_TRX_LINES),9,' ') || rpad(' ',87,' ')  ||  LPAD(TO_CHAR(v_SUM_TRANS,'999,999,999.99'),15,' ')  );
+    PUTLINE(p_wich,'  Total '||LPAD( TO_CHAR(v_TRX_LINES),9,' ') || rpad(' ',87,' ')  ||  LPAD(TO_CHAR(v_SUM_TRANS,'999,999,999.99'),15,' ')  );
 
 end;
- 
+
 /*
     #####################################################
     FUNCIONES PARA OBTENER VALORES
@@ -571,7 +574,7 @@ end;
     WHEN OTHERS THEN
           IF p_cur%ISOPEN THEN
           CLOSE p_cur;
-          END IF;        
+          END IF;
         putline(w_log,'Error fetching date '||sqlerrm);
         RETURN (sysdate);
     END;
@@ -580,7 +583,7 @@ end;
     NUMBER_VAL NUMBER;
     BEGIN
         FETCH p_cur  INTO  NUMBER_VAL;
-        
+
     RETURN(NUMBER_VAL);
 
     EXCEPTION
@@ -588,7 +591,7 @@ end;
           IF p_cur%ISOPEN THEN
           CLOSE p_cur;
           END IF;
-        
+
         putline(w_log,'Error fetching number '||sqlerrm);
         RETURN (0);
     END GET_NUMBER_VALUE;
@@ -631,7 +634,7 @@ end;
     exception when unbound_variable then
         null;
     end;
-    
+
     procedure bind_variables_date(p_curid number, p_sql_stmt varchar2 , p_var_name varchar2, p_var_date date ) is
     begin
         if p_var_date is not null then
@@ -715,7 +718,7 @@ begin
                       exception when others then putline(w_log,'error while clossing cursor => Opening and Parsing Cursor   : '||sqlerrm);
                     end;
                 end;
-                
+
                 --Binding Variables
                 if flag_ok_cursor = 'S' then
 
@@ -732,9 +735,9 @@ begin
                     bind_variables_num (curid,SQL_STATEMENT,':V_TRX_LINES'  ,V_Trx_Lines);
                     bind_variables_num (curid,SQL_STATEMENT,':V_SUM_TRANS'  ,V_Sum_Trans);
                     bind_variables_num (curid,SQL_STATEMENT,':V_SEQUENCE3'  ,V_SEQUENCE3);
-                    
+
                 end if;
-                
+
                 -- Excecuting cursor
                 if flag_ok_cursor = 'S' then
                     begin
@@ -748,11 +751,11 @@ begin
                         end;
                     end;
                 end if;
-                
+
                 --putline(w_log,'curid           : '||curid);
-            exception 
-                when others then 
-                
+            exception
+                when others then
+
                 flag_ok_cursor  := 'E';
                 begin
                   IF src_cur%ISOPEN THEN
@@ -761,7 +764,7 @@ begin
                   exception when others then
                     putline(w_log,'error while clossing cursor     : '||sqlerrm);
                 end;
-                
+
             end;
 
             if flag_ok_cursor = 'S' then
@@ -769,22 +772,22 @@ begin
                 WHEN 'DATE' THEN
                     begin
                         DATE_VAL := GET_DATE_VALUE(src_cur);
-                        exception 
-                        when others then 
+                        exception
+                        when others then
                         putline(w_log,'ERROR DATE_VAL     : '||sqlerrm);
                     end;
                 WHEN 'NUMBER' THEN
                     begin
                     NUMBER_VAL := GET_NUMBER_VALUE(src_cur);
-                        exception 
-                        when others then 
+                        exception
+                        when others then
                         putline(w_log,'ERROR number_VAL     : '||sqlerrm);
                     end;
                 WHEN 'STRING' THEN
                     begin
                         OUT_STR := GET_STRING_VALUE(src_cur);
-                    exception 
-                    when others then 
+                    exception
+                    when others then
                     putline(w_log,'ERROR string_VAL     : '||sqlerrm);
                     end;
                 ELSE
@@ -795,7 +798,7 @@ begin
 --
                 putline(w_log,'CHECK_ID      : '||CHECK_ID);
                 putline(w_log,'SQL Statement : '||SQL_STATEMENT);
-                
+
             end if;
 
         WHEN k_CONSTANT THEN
@@ -806,7 +809,7 @@ begin
         WHEN k_SEQUENCE2 THEN NUMBER_VAL := V_SEQUENCE2;
         ELSE NULL;
         END CASE;
-        
+
         CASE DATA_TYPE
             WHEN 'DATE' THEN
                 OUT_STR := TO_CHAR(DATE_VAL,FORMAT);
@@ -815,38 +818,38 @@ begin
             ELSE
                 NULL;
         END CASE;
-                    
+
 --        PUTLINE(W_Log,'-----------------------'  );
 --        PUTLINE(W_Log,'SEQ=>'   ||to_char( SECUENCE ) );
 --        PUTLINE(W_Log,'LEN=>'   ||to_char( LEN ));
 --        PUTLINE(W_Log,'TYP=>'   ||k_fixed);
-                
+
         if len < 1 then
             PUTLINE(W_Log,'*** Longitud es negativa ***' ||to_char( LEN ));
         end if;
-        
-        IF   NEEDS_PA = 'Y' 
+
+        IF   NEEDS_PA = 'Y'
         THEN
             if OUT_STR is null then
                OUT_STR := ' ';
             end if;
 --            PUTLINE(W_Log,'IN =>'|| OUT_STR );
 --            PUTLINE(W_Log,'LEN=>'|| LEN );
---            PUTLINE(W_Log,'DIR=>'|| PAD_DIR );            
+--            PUTLINE(W_Log,'DIR=>'|| PAD_DIR );
 --            PUTLINE(W_Log,'CHR=>'|| PAD_CHAR );
             --PUTLINE(W_Log,'ASC=>'|| ascii(PAD_CHARACTER) );
-            
-            
+
+
             CASE PAD_DIR
             WHEN 'RIGHT' THEN   OUT_STR := RPAD(OUT_STR,LEN,PAD_CHAR);
             WHEN 'LEFT'  THEN   OUT_STR := LPAD(OUT_STR,LEN,PAD_CHAR);
-            ELSE 
+            ELSE
                                 OUT_STR := RPAD(OUT_STR,LEN,PAD_CHAR);
             END CASE;
         END IF;
 
 --        PUTLINE(W_Log,'OUT=>'|| OUT_STR );
-        
+
         IF  TYPE_FILE = k_delimited THEN
             OUT_STR := REPLACE(OUT_STR,DELIMITER,'');
             OUT_STR := OUT_STR || DELIMITER;
@@ -858,12 +861,12 @@ begin
         WHEN OTHERS THEN
         putline(W_Log,' Error Creating Field ' || sqlerrm );
     RETURN ('');
-    
+
 END;
 --G_debug_flag
 
 /******************************************************************
-        Procedimiento  CHECKS_LINE    
+        Procedimiento  CHECKS_LINE
         Purpose         UNNA LINEA DE LA TRANSACCION Y/O EL DETALLE DE ESTA
 ******************************************************************/
 
@@ -883,11 +886,11 @@ SELECT  IA.INVOICE_ID
     FIELD       VARCHAR2(4000);
 
 BEGIN
-    
+
     TRX_LINE :='';
-    
+
 --    putline(w_log,'************************* Begin Process for BODY ************************* ');
-    
+
     FOR Q IN C_FILE ( k_Body ) LOOP
 
         FIELD:= GENERATE_VALUE (
@@ -914,9 +917,9 @@ BEGIN
     IF F_FORMAT_TYPE = k_delimited THEN
      trx_line :=  substr(trx_line,1,length(trx_line)-1);
     END IF;
-    
+
     put(w_wich, trx_line);
-    
+
     IF f_TRX_DETAIL THEN
 
         v_SEQUENCE2 := 1;
@@ -926,7 +929,7 @@ BEGIN
             DETAIL_LINE := '';
 --            putline(w_log,'************************* Begin Process for DETAIL ************************* ');
             FOR H IN C_FILE ( k_Detail )  LOOP
-                
+
             FIELD := GENERATE_VALUE (
                      H.SECUENCE,            --0
                      H.SQL_STATEMENT,       --1
@@ -956,7 +959,7 @@ BEGIN
 
             --PUTLINE(w_wich,DETAIL_LINE);
             put(w_wich, DETAIL_LINE);
-            
+
             v_SEQUENCE2 := v_SEQUENCE2 + 1;
             v_SEQUENCE3 := v_SEQUENCE3 + 1;
 
@@ -966,14 +969,14 @@ BEGIN
 
     v_SEQUENCE1 := v_SEQUENCE1 + 1;
     v_SEQUENCE3 := v_SEQUENCE3 + 1;
-    
+
     exception
     WHEN OTHERS THEN
-    putline(w_log,'PROCEDURE CHECKS_LINE Message Is: '||SQLERRM);         
-END;                       
-                      
+    putline(w_log,'PROCEDURE CHECKS_LINE Message Is: '||SQLERRM);
+END;
+
 /******************************************************************
-        PROCEDIMIENTO PRINCIPAL 
+        PROCEDIMIENTO PRINCIPAL
         PROPOCITO : CREAR LA ESTUCTURA DEL ARCHIVO
 ******************************************************************/
 
@@ -1013,19 +1016,19 @@ Procedure Initialize (
        ;
 
 begin
-    
+
     E_Start_Flag := true;
 
     G_BANK_ACC      := P_Bank_Acc;
     G_PAY_DOCUMENT  := P_Pay_Document;
-    G_Format_Used   := P_Format_Used; 
-    G_START_DATE    := to_date(P_Start_Date,fnd_date.canonical_DT_mask); 
+    G_Format_Used   := P_Format_Used;
+    G_START_DATE    := to_date(P_Start_Date,fnd_date.canonical_DT_mask);
     G_END_DATE      := to_date(P_End_Date,fnd_date.canonical_DT_mask);
-    G_BASE_AMOUNT   := p_BASE_AMOUNT; 
+    G_BASE_AMOUNT   := p_BASE_AMOUNT;
     G_TOP_AMOUNT    := p_TOP_AMOUNT;
     G_DOC_INI       := P_DOC_INI;
     G_DOC_FIN       := P_DOC_FIN;
-    
+
     FND_PROFILE.GET ('USER_ID', g_USER_ID);
     FND_PROFILE.GET ('RESP_ID', g_RESP_ID);
     FND_PROFILE.GET ('RESP_APPL_ID', g_RESP_APPL_ID);
@@ -1044,29 +1047,31 @@ begin
     if p_call_from in ('UNLOCK') then
         G_Set_status    := P_Set_Status;
     end if;
-    
+
     if  p_call_from in ('MAIN', 'UNLOCK', 'REPORT') then
-        if  P_Only_Unsent = 'Y' then    
+        
+        
+        if  P_Only_Unsent = 'Y' then
             G_STATUS_CHECK  := k_NEW;
             G_unsent_only   := 'Y';
-        elsif   P_Only_Unsent = 'N' then    
+        elsif   P_Only_Unsent = 'N' then
             G_STATUS_CHECK  := K_PRINTED;
             G_unsent_only   := 'N';
         end if;
     end if;
-    
+
     if p_call_from in ('MAIN') then
 
         begin
             select  b.BANK_PARTY_ID,bu.BANK_ACCOUNT_ID
-               , REGEXP_REPLACE     ( ou.name  
-                            ||'_' || dc.PAYMENT_DOCUMENT_NAME  
-                            ||'_' || TO_CHAR(SYSDATE,'YYYY-MON-DD_HHAM-MI-SS') 
+               , REGEXP_REPLACE     ( ou.name
+                            ||'_' || dc.PAYMENT_DOCUMENT_NAME
+                            ||'_' || TO_CHAR(SYSDATE,'YYYY-MON-DD_HHAM-MI-SS')
                                     ,'[^A-Za-z0-9_-]', '')
               into g_bank_id , g_BANK_ACC, W_File_Name
-        from  apps.ce_banks_v b 
-            ,apps.ce_bank_acct_uses_all bu 
-            ,ce_bank_accounts ba 
+        from  apps.ce_banks_v b
+            ,apps.ce_bank_acct_uses_all bu
+            ,ce_bank_accounts ba
             , apps.ce_payment_documents dc
             ,apps.hr_operating_units ou
          where bu.BANK_ACCOUNT_ID = ba.BANK_ACCOUNT_ID
@@ -1081,7 +1086,7 @@ begin
             putline(w_log,'SQLERRM: '||sqlerrm );
         end;
         begin
-            select  ms.file_extension   
+            select  ms.file_extension
               into  W_File_Ext
               from XX_AP_EFT_FORMATS ms
              where ms.FORMAT_ID = P_Format_Used
@@ -1090,15 +1095,15 @@ begin
             E_Error_Code := '1';
              PUTLINE(w_LOG,' Payment Document Does not have an assigned Format '||w_file_dir);
         end;
-        
-        if p_TRANSFER_FTP = 'Y' then 
+
+        if p_TRANSFER_FTP = 'Y' then
 
             W_File_FTP := P_Directory;
-            
+
             PUTLINE(w_LOG,' File will be transfer to FTP ');
             begin
                select DIRECTORY_PATH into W_File_default
-                from all_directories 
+                from all_directories
                 where DIRECTORY_NAME = w_file_dir
                 ;
             exception when no_data_found then
@@ -1107,7 +1112,7 @@ begin
                 when others then
                 PUTLINE(w_LOG,' UnExpected Error all_directories '||SQLerrm);
             end;
-            
+
             if W_File_default is not null  then
                 f_transfer_ftp := true;
                 open_file;
@@ -1116,11 +1121,11 @@ begin
                 f_transfer_ftp := false;
                 PUTLINE(w_LOG,' Extention is not Set ');
             end if;
-            
-        else   
+
+        else
             PUTLINE(w_LOG,'The output will be by default ');
             f_transfer_ftp := false;
-            
+
             if not G_debug_flag then
                 w_wich      := w_output;
             else
@@ -1129,9 +1134,9 @@ begin
             end if;
 
         end if;
-        
+
         FOR R IN FORMAT LOOP
-                        
+
             F_FORMAT_TYPE   := R.FORMAT_TYPE;
             f_DELIMITER     := R.DELIMITER;
 
@@ -1144,34 +1149,37 @@ begin
             END CASE;
 
         END LOOP;
+
+        G_process_type := p_process_type;
         
-                
-        if p_process_type  in ('FINAL')  then
+        if G_process_type  in ('FINAL')  then
             G_Set_status    := K_PRINTED;
             G_unsent_only   := 'Y';
         end if;
-        
+
         if g_format_used is null then
             E_Error_Code := '1';
             putline(w_log,'Unexpected : This payment Document Does not have a format asosiated with.');
         end if;
-        
+
     end if;
-    
+
     if p_call_from in ('MAIN', 'REPORT') then
-        
+
         GET_TRXAMOUNT_AND_TRXLINES;
+        
+        G_process_type := p_process_type;
         
         IF v_TRX_LINES = 0 THEN
             e_ERROR_CODE := '1';
             E_Error_Desc := 'Warning : Parameters did not retrieve any data';
             E_Start_Flag := false;
         END IF;
-        
-        
+
+
     end if;
-    
-    
+
+
     putline(w_log,' G_Bank_Id            => ' ||G_Bank_Id );
     putline(w_log,' G_Bank_Acc           => ' ||G_Bank_Acc );
     putline(w_log,' G_Pay_Document       => ' ||G_Pay_Document );
@@ -1189,7 +1197,7 @@ begin
     putline(w_log,' W_Init_File          => ' ||bool_to_char(W_Init_File ) );
     putline(w_log,' E_Start_Flag         => ' ||bool_to_char(E_Start_Flag ) );
     putline(w_log,' E_Proper_exe         => ' ||bool_to_char(E_Proper_exe) );
-    
+
 end;
 
 
@@ -1211,11 +1219,11 @@ procedure MAIN (
             ,Pin_Only_Unsent         Varchar2       --+ 15
             ,Pin_debug_flag Varchar2 default '1'    --+ 16
             ) IS
-    
+
     Field                   Varchar2(4000);
     Line                    Clob;
     VPHASE_CODE Varchar2(50); VSTATUS_CODE Varchar2(50);
-    
+
     BEGIN
 
 
@@ -1235,7 +1243,7 @@ procedure MAIN (
                   ,p_debug_flag         => Pin_debug_flag
                   ,p_call_from          => 'MAIN'
                    );
-                   
+
         putline(w_log,'');
         putline(w_log,'Start process log');
         putline(w_log,'+---------------------------------------------------------------------------+');
@@ -1246,7 +1254,7 @@ procedure MAIN (
 
             IF f_TRX_HEADER THEN
 --                putline(w_WICH,'************************* Begin Process for HEADER ************************* ');
-                
+
                 FOR L IN C_FILE(k_Header) LOOP
 
                     FIELD := GENERATE_VALUE (
@@ -1277,8 +1285,8 @@ procedure MAIN (
                 put(w_wich, LINE);
 
             END IF;
-          
-            IF f_TRX_BODY THEN                
+
+            IF f_TRX_BODY THEN
                 v_SEQUENCE1 := 1;
 
                 for i in c_checks loop
@@ -1286,10 +1294,10 @@ procedure MAIN (
                 end loop;
 
             END IF;
-           
+
             IF f_TRX_FOOTER THEN
 --                putline(w_log,'************************* Begin Process for TRAILER  ************************* ');
-                
+
                 FOR L IN C_FILE(k_TRAILER) LOOP
 
                     FIELD := GENERATE_VALUE (
@@ -1320,34 +1328,36 @@ procedure MAIN (
                 put(w_wich, LINE);
 
             END IF;
-               
+
         END IF;
 
         IF e_START_FLAG  THEN
 
             if f_transfer_ftp then
-                move_file; --+ Copy from default Directory to Specified
+                if G_process_type = 'FINAL' then
+                    move_file; --+ Copy from default Directory to Specified
+                end if;
             end if;
            null;
-            
+
             if W_Init_File then
                 close_file;
             end if;
-           
-            if E_Proper_exe then 
-                
+
+            if E_Proper_exe then
+
                 report_subrequest; --+ This Raise a Report of The payments
                 COMMIT;
                     --+ LOOP PARA ESPERAR QUE FINALICE EL REQUEST
                 LOOP
                     DBMS_LOCK.sleep(1);
-                    SELECT PHASE_CODE,  STATUS_CODE  
+                    SELECT PHASE_CODE,  STATUS_CODE
                       INTO VPHASE_CODE, VSTATUS_CODE
                       FROM FND_CONCURRENT_REQUESTS
                      WHERE REQUEST_ID = g_report_sub_request;
-                EXIT WHEN VPHASE_CODE = 'C';        
+                EXIT WHEN VPHASE_CODE = 'C';
                 END LOOP;
-                
+
                 if pin_process_type  in ('FINAL')  then
                     update_status;
                 end if;
@@ -1356,10 +1366,10 @@ procedure MAIN (
 
         putline(w_log,'+---------------------------------------------------------------------------+');
         putline(w_log,'End process log');
-        
+
         errbuf  := E_Error_Desc;
         retcode := E_Error_Code;
-        
+
     EXCEPTION
         WHEN OTHERS THEN
             putline(w_log,'Main Error Message Is: '||SQLERRM);
@@ -1368,8 +1378,8 @@ procedure MAIN (
      ROLLBACK;
 
     END;
-    
-    
+
+
 procedure REPORT (
              Errbuf     Out          Varchar2       --+ 1
             ,Retcode    Out          Varchar2       --+ 2
@@ -1382,11 +1392,15 @@ procedure REPORT (
             ,Pin_Base_Amount         Number         --+ 10
             ,Pin_Top_Amount          Number         --+ 11
             ,Pin_Only_Unsent         Varchar2       --+ 14
-            ,Pin_debug_flag Varchar2 default '1'    --+ 15
+            ,pin_process_type        varchar2   default 'DRAFT'     --+ 15
+            ,Pin_debug_flag          Varchar2   default '1'    --+ 16
             ) IS
-    
+
     BEGIN
-        
+
+        putline(w_log,'+---------------------------------------------------------------------------+');
+        putline(w_log,'Proces type REPORT call '||pin_process_type);
+        putline(w_log,'+---------------------------------------------------------------------------+');
         initialize(P_Bank_Acc           => pin_Bank_Acc
                   ,P_Pay_Document       => Pin_Pay_Document
                   ,P_Start_Date         => Pin_Start_Date
@@ -1397,6 +1411,7 @@ procedure REPORT (
                   ,P_Top_Amount         => Pin_Top_Amount
                   ,P_Only_Unsent        => Pin_Only_Unsent
                   ,p_debug_flag         => Pin_debug_flag
+                  ,p_process_type       => pin_process_type
                   ,p_call_from          => 'REPORT'
                   );
 
@@ -1413,7 +1428,7 @@ procedure REPORT (
 
     END;
 
-    
+
 
 
 
@@ -1435,7 +1450,7 @@ PROCEDURE UNLOCK (
 
     USER_GRANTED_ID number;
 BEGIN
-        
+
         initialize (
            P_Bank_Acc           => pin_Bank_Acc
           ,P_Pay_Document       => Pin_Pay_Document
@@ -1449,7 +1464,7 @@ BEGIN
           ,P_Only_Unsent        => 'N'
           ,P_Set_Status         => Pin_Set_Status
            );
-        
+
     BEGIN
         SELECT usr.USER_ID
         INTO USER_GRANTED_ID
@@ -1493,12 +1508,10 @@ BEGIN
         E_Error_Code  := '1';
         E_Error_Desc  := 'User Does not have Access';
     end if;
-    
+
     errbuf  := E_Error_Desc;
-    retcode := E_Error_Code;  
+    retcode := E_Error_Code;
 END;
 
 END;
-/
-exit
 /

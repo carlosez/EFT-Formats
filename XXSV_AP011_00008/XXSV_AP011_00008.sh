@@ -93,7 +93,7 @@ APPS_PASS=$DB_PASS
 read_db_pwd "BOLINF"
 BOLINF_PASS=$DB_PASS
 
-<<'COMMENT'
+
 echo 'Copyng Forms to XBOL_TOP/forms/ '
 copy_file au/forms $XBOL_TOP/forms/ESA XX_AP_EPAYMENTS.fmb
 copy_file au/forms $XBOL_TOP/forms/US XX_AP_EPAYMENTS.fmb
@@ -101,35 +101,70 @@ copy_file au/forms $XBOL_TOP/forms/F XX_AP_EPAYMENTS.fmb
 echo 'Copyng Host Executables'
 copy_file xbol/bin $XBOL_TOP/bin XX_EFT_MOVE_FILE.prog
 
+
+
 # CREACION de Tablas BOLINF
 echo 'Ejecutando Creacion de Tablas y Paquetes en BOLINF'
-sqlplus bolinf/$BOLINF_PASS @sql/XX_AP_EFT_FORMATS.sql
-sqlplus bolinf/$BOLINF_PASS @sql/XX_AP_EFT_FORMAT_DEFINITIONS.sql
+echo '+---------------------------------------------------------------------------+'
+echo 'Ejecutando XX_AP_EFT_FORMATS.sql'
+sqlplus bolinf/$BOLINF_PASS @xbol/sql/XX_AP_EFT_FORMATS.sql
+
+echo '+---------------------------------------------------------------------------+'
+echo 'Ejecutando XX_AP_EFT_FORMAT_DEFINITIONS.sql'
+sqlplus bolinf/$BOLINF_PASS @xbol/sql/XX_AP_EFT_FORMAT_DEFINITIONS.sql
+
 
 # Creacion de Secuencias
-sqlplus bolinf/$BOLINF_PASS @sql/SEQUENCES.sql
+echo '+---------------------------------------------------------------------------+'
+echo 'Ejecutando XX_AP_EFT_FORMAT_DEFINITIONS_S.sql'
+sqlplus bolinf/$BOLINF_PASS @xbol/sql/XX_AP_EFT_FORMAT_DEFINITIONS_S.sql
+
+echo '+---------------------------------------------------------------------------+'
+echo 'Ejecutando XX_AP_EFT_FORMATS_S.sql'
+sqlplus bolinf/$BOLINF_PASS @xbol/sql/XX_AP_EFT_FORMATS_S.sql
+
 
 # CREACION de Paquetes BOLINF
-sqlplus bolinf/$BOLINF_PASS @sql/XX_AP_EFT_FORMATS_PKG.pks
-sqlplus bolinf/$BOLINF_PASS @sql/XX_AP_EFT_FORMATS_PKG.pkb
-sqlplus bolinf/$BOLINF_PASS @sql/XX_AP_EFT_FORMATS_UTL.pks
-sqlplus bolinf/$BOLINF_PASS @sql/XX_AP_EFT_FORMATS_UTL.pkb
+echo '+---------------------------------------------------------------------------+'
+echo 'Ejecutando XX_AP_EFT_FORMATS_PKG.pks'
+sqlplus bolinf/$BOLINF_PASS @xbol/sql/XX_AP_EFT_FORMATS_PKG.pks
 
-# Concecion de permisos
-sqlplus bolinf/$BOLINF_PASS @sql/grants_from_bolinf.sql
+echo '+---------------------------------------------------------------------------+'
+echo 'Ejecutando XX_AP_EFT_FORMATS_PKG.pkb'
+sqlplus bolinf/$BOLINF_PASS @xbol/sql/XX_AP_EFT_FORMATS_PKG.pkb
+
+echo '+---------------------------------------------------------------------------+'
+echo 'Ejecutando XX_AP_EFT_FORMATS_UTL.pks'
+sqlplus bolinf/$BOLINF_PASS @xbol/sql/XX_AP_EFT_FORMATS_UTL.pks
+
+echo '+---------------------------------------------------------------------------+'
+echo 'Ejecutando XX_AP_EFT_FORMATS_UTL.pkb'
+sqlplus bolinf/$BOLINF_PASS @xbol/sql/XX_AP_EFT_FORMATS_UTL.pkb
 
 # Creacion de Directorio Logico
-sqlplus apps/$APPS_PASS @sql/XXSV_FILE_ELECTRONIC_DIR.sql
+echo '+---------------------------------------------------------------------------+'
+echo 'Ejecutando XXSV_FILE_ELECTRONIC_DIR.sql'
+sqlplus bolinf/$BOLINF_PASS @xbol/sql/XXSV_FILE_ELECTRONIC_DIR.sql
+
+# Concecion de permisos
+echo '+---------------------------------------------------------------------------+'
+echo 'Ejecutando grants_from_bolinf.sql'
+sqlplus bolinf/$BOLINF_PASS @xbol/sql/grants_from_bolinf.sql
 
 # Creacion Sinonimos 
-sqlplus apps/$APPS_PASS @sql/synonyms_apps.sql
-
-COMMENT
-
-# Carga Concurrentes.
-echo 'Carga de Concurrentes'
+echo '+---------------------------------------------------------------------------+'
+echo 'Ejecutando synonyms_apps.sql'
+sqlplus apps/$APPS_PASS @xbol/sql/synonyms_apps.sql
 
 
+echo '+---------------------------------------------------------------------------+'
+echo 'Ejecutando synonyms_apps_sequences.sql'
+sqlplus apps/$APPS_PASS @xbol/sql/synonyms_apps_sequences.sql
+
+
+# Carga Concurrente
+echo '+---------------------------------------------------------------------------+'
+echo 'Carga de Concurrentes LATIN AMERICAN SPANISH_AMERICA.WE8ISO8859P1' 
 export NLS_LANG="LATIN AMERICAN SPANISH_AMERICA.WE8ISO8859P1"
 FNDLOAD apps/$APPS_PASS 0 Y UPLOAD $FND_TOP/patch/115/import/afcpprog.lct xbol/admin/import/ES_XX_AP_EFT_TRANS_BNKFILE.ldt CUSTOM_MODE=FORCE
 FNDLOAD apps/$APPS_PASS 0 Y UPLOAD $FND_TOP/patch/115/import/afcpprog.lct xbol/admin/import/ES_XX_EFT_MOVE_FILE.ldt CUSTOM_MODE=FORCE
@@ -137,6 +172,8 @@ FNDLOAD apps/$APPS_PASS 0 Y UPLOAD $FND_TOP/patch/115/import/afcpprog.lct xbol/a
 FNDLOAD apps/$APPS_PASS 0 Y UPLOAD $FND_TOP/patch/115/import/afcpprog.lct xbol/admin/import/ES_XX_AP_PAY_REG.ldt CUSTOM_MODE=FORCE
 FNDLOAD apps/$APPS_PASS 0 Y UPLOAD $FND_TOP/patch/115/import/afcpprog.lct xbol/admin/import/ES_XXMIGRATEEFTFORMAT.ldt CUSTOM_MODE=FORCE
 
+echo '+---------------------------------------------------------------------------+'
+echo 'Carga de Concurrentes American_America.WE8ISO8859P1' 
 export NLS_LANG="American_America.WE8ISO8859P1"
 FNDLOAD apps/$APPS_PASS 0 Y UPLOAD $FND_TOP/patch/115/import/afcpprog.lct xbol/admin/import/US_XX_AP_EFT_TRANS_BNKFILE.ldt CUSTOM_MODE=FORCE
 FNDLOAD apps/$APPS_PASS 0 Y UPLOAD $FND_TOP/patch/115/import/afcpprog.lct xbol/admin/import/US_XX_EFT_MOVE_FILE.ldt CUSTOM_MODE=FORCE
@@ -144,42 +181,62 @@ FNDLOAD apps/$APPS_PASS 0 Y UPLOAD $FND_TOP/patch/115/import/afcpprog.lct xbol/a
 FNDLOAD apps/$APPS_PASS 0 Y UPLOAD $FND_TOP/patch/115/import/afcpprog.lct xbol/admin/import/US_XX_AP_PAY_REG.ldt CUSTOM_MODE=FORCE
 FNDLOAD apps/$APPS_PASS 0 Y UPLOAD $FND_TOP/patch/115/import/afcpprog.lct xbol/admin/import/US_XXMIGRATEEFTFORMAT.ldt CUSTOM_MODE=FORCE
 
-# Carga De Jeugo de Valores
+# Carga De Juego de Valores
+echo '+---------------------------------------------------------------------------+'
+echo 'Carga de Juegos de Valores' 
 export NLS_LANG="LATIN AMERICAN SPANISH_AMERICA.WE8ISO8859P1"
-FNDLOAD apps/$APPS_PASS O Y UPLOAD $FND_TOP/patch/115/import/afffload.lct ES_XX_AP_PAY_REG_TITLE_REPORT.ldt
+FNDLOAD apps/$APPS_PASS O Y UPLOAD $FND_TOP/patch/115/import/afffload.lct xbol/admin/import/ES_XX_AP_PAY_REG_TITLE_REPORT.ldt
 export NLS_LANG="American_America.WE8ISO8859P1"
-FNDLOAD apps/$APPS_PASS O Y UPLOAD $FND_TOP/patch/115/import/afffload.lct US_XX_AP_PAY_REG_TITLE_REPORT.ldt
+FNDLOAD apps/$APPS_PASS O Y UPLOAD $FND_TOP/patch/115/import/afffload.lct xbol/admin/import/US_XX_AP_PAY_REG_TITLE_REPORT.ldt
 
-<<'COMMENT'
 # Carga Request Group.
+echo '+---------------------------------------------------------------------------+'
 echo 'Carga de Request Group'
-FNDLOAD apps/$APPS_PASS 0 Y UPLOAD $FND_TOP/patch/115/import/afcpreqg.lct admin/import/RQ_All_Reports_Payables.ldt - CUSTOM_MODE=FORCE
+FNDLOAD apps/$APPS_PASS 0 Y UPLOAD $FND_TOP/patch/115/import/afcpreqg.lct xbol/admin/import/RQ_All_Reports_Payables.ldt - CUSTOM_MODE=FORCE
+
 
 
 # Carga Menu.
-echo 'Carga Menu'
+echo '+---------------------------------------------------------------------------+'
+echo 'Backing UP Menu AP_NAVIGATE_GUI12_MN.ldt'
+FNDLOAD apps/$APPS_PASS O Y DOWNLOAD $FND_TOP/patch/115/import/afsload.lct MN_AP_NAVIGATE_GUI12_BK.ldt MENU MENU_NAME="AP_NAVIGATE_GUI12"
+echo '+---------------------------------------------------------------------------+'
+echo 'Loading Menu  AP_NAVIGATE_GUI12_MN.ldt'
 FNDLOAD apps/$APPS_PASS 0 Y UPLOAD $FND_TOP/patch/115/import/afsload.lct $XBOL_TOP/admin/import/AP_NAVIGATE_GUI12_MN.ldt UPLOAD_MODE=REPLACE CUSTOM_MODE="FORCE"
 
 
-echo 'Carga de Ejecutable'
 
+echo '+---------------------------------------------------------------------------+'
+echo 'Loading Host File'
 
-instal = pwd
+#instal = pwd
 cd $XBOL_TOP/bin
+echo 'Listing Files '
+ls -al XX_EFT*
+echo 'Creating Symbolic Link  '
 #chmod 775 XX_EFT_MOVE_FILE.prog
-ln -s $FND_TOP/bin/fndcpesr XX_EFT_MOVE_FILE.prog
-cd $instal
-ls -al
-
+ln -s $FND_TOP/bin/fndcpesr XX_EFT_MOVE_FILE
+ls -al XX_EFT*
+#cd $instal
+#echo ' Regresando a directorio instal'
 # compila forma
+
+
+echo '+---------------------------------------------------------------------------+'
+echo ' Compiling Form Spanish '
 cd  $XBOL_TOP/forms/ESA
 frmcmp_batch module=XX_AP_EPAYMENTS.fmb userid=apps/$APPS_PASS module_type=form compile_all=special
+
+echo '+---------------------------------------------------------------------------+'
+echo ' Compiling Form English '
 cd  $XBOL_TOP/forms/US
 frmcmp_batch module=XX_AP_EPAYMENTS.fmb userid=apps/$APPS_PASS module_type=form compile_all=special
+
+echo '+---------------------------------------------------------------------------+'
+echo ' Compiling Form Fhench '
 cd  $XBOL_TOP/forms/F
 frmcmp_batch module=XX_AP_EPAYMENTS.fmb userid=apps/$APPS_PASS module_type=form compile_all=special
 
-COMMENT
 
 echo '+------------------------------------------------------------------------------+'
 echo '|                                                                              |'

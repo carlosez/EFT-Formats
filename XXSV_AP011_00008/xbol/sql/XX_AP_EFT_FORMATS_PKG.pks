@@ -24,6 +24,7 @@ unbound_variable exception;
     G_Status_Check      Varchar2(10)    := 'NEW';
     G_Set_status        Varchar2(10)    := 'PRINTED';
     G_debug_flag        boolean         := false;
+    G_process_type      Varchar2(10)    := 'DRAFT';
 
     g_report_sub_request number;
     g_USER_ID        NUMBER;
@@ -31,20 +32,20 @@ unbound_variable exception;
     g_RESP_APPL_ID   NUMBER;
 
 /******************************************************************
-    Constans to avoid 
+    Constans to avoid
 ******************************************************************/
-    
+
     k_Header            constant    Varchar2(25) := 'HEADER';
     k_Body              constant    Varchar2(25) := 'BODY';
     k_Detail            constant    Varchar2(25) := 'DETAIL';
     k_TRAILER           constant    Varchar2(25) := 'TRAILER';
-    
+
     k_delimited         constant    Varchar2(25) := 'DELIMITED';
     k_fixed             constant    Varchar2(25) := 'FIXED_WIDTH';
-    
+
     k_NEW               constant    Varchar2(25) := 'NEW';
     K_PRINTED           constant    Varchar2(25) := 'PRINTED';
-    
+
     k_CONSTANT          constant    Varchar2(25) := 'CONSTANT';
     k_DINAMIC           constant    Varchar2(25) := 'DINAMIC';
     k_SEQUENCE1         constant    Varchar2(25) := 'SEQUENCE1';
@@ -52,7 +53,7 @@ unbound_variable exception;
     k_SEQUENCE3         constant    Varchar2(25) := 'SEQUENCE3';
     k_TRX_LINES         constant    Varchar2(25) := 'TRX_LINES';
     k_SUM_TRANS         constant    Varchar2(25) := 'SUM_TRANS';
-    
+
     F_Trx_Header        Boolean := False;
     F_Trx_Body          Boolean := False;
     F_Trx_Detail        Boolean := False;
@@ -60,7 +61,7 @@ unbound_variable exception;
     F_FORMAT_TYPE       Varchar2(100)   := k_delimited;
     F_Delimiter         Varchar2(1)     := chr(124);
     F_Transfer_Ftp      Boolean := False;
-           
+
     V_Sequence1         Number := 0;    --+ CURRENT NUMBER RECORD IN TRX
     V_Sequence2         Number := 0;    --+ CURRENT NUMBER RECORD IN DETAIL
     V_Sequence3         Number := 0;    --+ CURRENT LINE IN ARCHIVE TRX AND DETAIL
@@ -76,8 +77,8 @@ unbound_variable exception;
     W_Wich              Number              := W_Output;
     w_report            Number              := W_Output;
     W_Init_File         Boolean             := False;
-    
-        
+
+
     W_File_Name         Varchar2(150)       := 'o'; --+ File Creation name
     W_File_Ext          Varchar2(10)        := '';  --+ file extension
     W_File_Dir          Varchar2(50)        := 'XX_BANK_ELECTRONIC_DIR';    --+ Directorio logico por defecto
@@ -85,13 +86,13 @@ unbound_variable exception;
     W_File_FTP          Varchar2(150)       := '';  --+ Ruta donde se movera el archivo
     W_File_Out          Utl_File.File_Type;
     w_count             number              := 0;
-    
+
     E_Start_Flag        Boolean             := False;   --+ Whether to start
     E_Proper_exe        boolean             := true;    --+ True if all went ok
-    
-    E_Error_Desc        Varchar2(1000)      := '';      --+ concurrent out var       
+
+    E_Error_Desc        Varchar2(1000)      := '';      --+ concurrent out var
     E_Error_Code        VARCHAR2(1)         := '0';     --+ Concurrent out var
-    
+
     Type T_CHECKS       Is Record
        (Check_Id            Number
        ,Doc_Sequence_Value  Number
@@ -105,7 +106,7 @@ unbound_variable exception;
 
     Cursor C_Checks     Return T_Checks;
 --    Cursor C_Checks_U   Return ap_checks_all.rowid, ap_checks_all%rowtype;
-       
+
     type T_file is record
        (FORMAT_TYPE         XX_AP_EFT_FORMATS.FORMAT_TYPE%TYPE                  --+ 1
        ,DELIMITER           VARCHAR2(1)                                         --+ 2
@@ -121,7 +122,7 @@ unbound_variable exception;
        ,NEEDS_PADDING       VARCHAR2(1)                                         --+ 12
        ,SQL_STATEMENT       XX_AP_EFT_FORMAT_DEFINITIONS.SQL_STATEMENT%TYPE     --+ 13
        );
-    
+
     CURSOR C_FILE ( P_PART VARCHAR2 )  RETURN T_file;
 
 Procedure MAIN (
@@ -155,7 +156,8 @@ Procedure REPORT (
             ,Pin_Base_Amount         Number         --+ 10
             ,Pin_Top_Amount          Number         --+ 11
             ,Pin_Only_Unsent         Varchar2       --+ 14
-            ,Pin_debug_flag Varchar2 default '1'    --+ 15
+            ,pin_process_type        varchar2  default 'DRAFT'     --+ 15
+            ,Pin_debug_flag Varchar2 default '1'    --+ 16
             );
 
 Procedure UNLOCK (
@@ -173,10 +175,8 @@ Procedure UNLOCK (
             ,Pin_User_granted        Varchar2       --+ 12
             );
 
-          
-Procedure Putline(Which In Number, Buff In Varchar2);   
-       
+
+Procedure Putline(Which In Number, Buff In Varchar2);
+
 End;
-/
-exit
 /
