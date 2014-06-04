@@ -18,10 +18,18 @@ drop package XX_AP_EFT_FORMATS_PKG;
 
 drop package XX_AP_EFT_FORMATS_UTL;
 
-
 drop sequence XX_AP_EFT_FORMAT_DEFINITIONS_S;
 
 drop sequence XX_AP_EFT_FORMATS_S;
 
+
+--select * from   DBA_OBJECTS
+--where object_name =  'XX_AP_EFT_FORMATS_S'
+
 --rm $XBOL_TOP/bin/XX_EFT_MOVE_FILE.prog
 --rm $XBOL_TOP/bin/XX_EFT_MOVE_FILE
+
+--CREATE OR REPLACE DIRECTORY 
+--XX_BANK_ELECTRONIC_DIR AS 
+--'/interface/j_mili/DMILII/outgoing/ALL/BANK'
+--;
