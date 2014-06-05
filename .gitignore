@@ -2,3 +2,8 @@ out/
 documents/
 template parameters.xlsx
 XXSV_AP011_00008_Documents/
+*.docx
+*.doc
+*.xls
+*.xlsx
+*.zip
