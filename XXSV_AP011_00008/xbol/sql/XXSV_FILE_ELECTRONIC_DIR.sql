@@ -1,9 +1,0 @@
---select * from all_directories
-
-CREATE OR REPLACE DIRECTORY XX_BANK_ELECTRONIC_DIR AS '/interface/j_mili/TMILII/outgoing/ALL/BANK';
-
-GRANT ALL ON DIRECTORY XX_BANK_ELECTRONIC_DIR TO APPS WITH GRANT OPTION;
-
-/
-exit
-/
